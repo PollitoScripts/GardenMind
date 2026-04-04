@@ -6,78 +6,105 @@ let scene, camera, renderer, controls;
 const fireflies = [];
 const loader = new GLTFLoader();
 
-export function initGarden() {
-    scene = new THREE.Scene();
-    
-    const textureLoader = new THREE.TextureLoader();
-    textureLoader.load('./assets/textures/jardin-fondo.webp', (texture) => {
-        scene.background = texture;
-    });
-
-    scene.fog = new THREE.FogExp2(0x050505, 0.05);
-
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.toneMapping = THREE.ReinhardToneMapping;
-    document.getElementById('app-canvas').appendChild(renderer.domElement);
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 2); 
-    scene.add(ambientLight);
-
-    camera.position.set(0, 1, 5);
-    controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.target.set(0, 0, 0); 
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.5;
-
-    // Spawneamos 5 iniciales
-    for(let i = 0; i < 5; i++) {
-        spawnFirefly(
-            (Math.random() - 0.5) * 4,
-            Math.random() * 2,
-            (Math.random() - 0.5) * 4
+// --- TU LÓGICA DE CLASE ADAPTADA ---
+class Firefly {
+    constructor(model) {
+        this.mesh = model.clone();
+        this.position = new THREE.Vector3(
+            (Math.random() - 0.5) * 10,
+            Math.random() * 5,
+            (Math.random() - 0.5) * 10
         );
-    }
-
-    window.addEventListener('resize', onWindowResize);
-    animate();
-}
-
-function spawnFirefly(x, y, z) {
-    loader.load('./assets/models/test3.glb', (gltf) => {
-        const firefly = gltf.scene;
+        this.velocity = new THREE.Vector3((Math.random() - 0.5) * 0.02, (Math.random() - 0.5) * 0.02, (Math.random() - 0.5) * 0.02);
+        this.acceleration = new THREE.Vector3();
+        this.maxSpeed = 0.03 + Math.random() * 0.02;
+        this.maxForce = 0.002;
         
-        // Mantenemos la escala en 0.1 o ajusta según prefieras
-        firefly.scale.set(0.1, 0.1, 0.1); 
-        firefly.position.set(x, y, z);
-
-        // --- AUMENTAMOS LA VELOCIDAD ---
-        // (Math.random() - 0.5) * 0.06 dará valores entre -0.03 y 0.03 (el triple que antes)
-        firefly.userData = {
-            velX: (Math.random() - 0.5) * 0.06,
-            velY: (Math.random() - 0.5) * 0.06,
-            velZ: (Math.random() - 0.5) * 0.06,
-            offset: Math.random() * 100
-        };
-
-        firefly.traverse((child) => {
+        this.mesh.position.copy(this.position);
+        this.mesh.scale.set(0.12, 0.12, 0.12); // Ajuste de escala
+        
+        // Brillo
+        this.mesh.traverse((child) => {
             if (child.isMesh) {
                 child.material.emissive = new THREE.Color(0xffff00);
                 child.material.emissiveIntensity = 5;
             }
         });
+        
+        scene.add(this.mesh);
+    }
 
-        scene.add(firefly);
-        fireflies.push(firefly);
+    update() {
+        // Algoritmo de Wander (Movimiento errático natural de tu código)
+        let steer = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.01,
+            (Math.random() - 0.5) * 0.01,
+            (Math.random() - 0.5) * 0.01
+        );
+        
+        this.acceleration.add(steer);
+        this.velocity.add(this.acceleration);
+        this.velocity.clampLength(0, this.maxSpeed);
+        this.position.add(this.velocity);
+        
+        // Orientación: Mirar hacia donde va
+        const target = this.position.clone().add(this.velocity);
+        this.mesh.lookAt(target);
+        this.mesh.rotateY(Math.PI); // Corrección de 180º que necesitábamos
+
+        this.mesh.position.copy(this.position);
+        
+        // Reset de aceleración
+        this.acceleration.multiplyScalar(0);
+
+        // Rebote en los bordes (Para que no se pierdan)
+        const limit = 6;
+        if (Math.abs(this.position.x) > limit) this.velocity.x *= -1;
+        if (Math.abs(this.position.y) > limit) this.velocity.y *= -1;
+        if (Math.abs(this.position.z) > limit) this.velocity.z *= -1;
+    }
+}
+
+// --- MOTOR DEL JARDÍN ---
+
+export function initGarden() {
+    scene = new THREE.Scene();
+    
+    // Fondo
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load('./assets/textures/jardin-fondo.webp', (t) => scene.background = t);
+
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    document.getElementById('app-canvas').appendChild(renderer.domElement);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 2); 
+    scene.add(ambientLight);
+
+    camera.position.set(0, 2, 8);
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // Cargamos el modelo una vez y creamos las instancias
+    loader.load('./assets/models/test3.glb', (gltf) => {
+        for(let i = 0; i < 8; i++) {
+            fireflies.push(new Firefly(gltf.scene));
+        }
     });
+
+    window.addEventListener('resize', onWindowResize);
+    animate();
 }
 
 export function addMemoryFirefly() {
-    // Cuando el usuario pulsa el botón, nace una en el centro
-    spawnFirefly(0, 1, 0);
+    // Para simplificar, cargamos una nueva usando el mismo loader
+    loader.load('./assets/models/test3.glb', (gltf) => {
+        const f = new Firefly(gltf.scene);
+        f.position.set(0, 1, 0);
+        fireflies.push(f);
+    });
 }
 
 function onWindowResize() {
@@ -88,56 +115,9 @@ function onWindowResize() {
 
 function animate() {
     requestAnimationFrame(animate);
-    const time = Date.now() * 0.001;
-
-    fireflies.forEach((f1, i) => {
-        // 1. MOVIMIENTO BASE
-        f1.position.x += f1.userData.velX;
-        f1.position.y += f1.userData.velY;
-        f1.position.z += f1.userData.velZ;
-
-        // 2. EVITAR OBSTRUCCIONES (Colisiones)
-        for (let j = i + 1; j < fireflies.length; j++) {
-            const f2 = fireflies[j];
-            const dist = f1.position.distanceTo(f2.position);
-            const minDist = 0.4; // Distancia mínima entre ellas
-
-            if (dist < minDist) {
-                // Si están muy cerca, se empujan suavemente
-                const push = new THREE.Vector3().subVectors(f1.position, f2.position).normalize().multiplyScalar(0.01);
-                f1.position.add(push);
-                f2.position.sub(push);
-            }
-        }
-
-        // 3. LÍMITES DE VUELO (Rebote)
-        const limit = 5;
-        if (Math.abs(f1.position.x) > limit) f1.userData.velX *= -1;
-        if (Math.abs(f1.position.y) > limit) f1.userData.velY *= -1;
-        if (Math.abs(f1.position.z) > limit) f1.userData.velZ *= -1;
-
-        // 4. --- ORIENTACIÓN AL FRENTE (lookAt) ---
-        // 4.1. Definimos el punto de destino
-        const targetPoint = new THREE.Vector3(
-            f1.position.x + f1.userData.velX,
-            f1.position.y + f1.userData.velY,
-            f1.position.z + f1.userData.velZ
-        );
-        
-        // 4.2. Obligamos al modelo a mirar al punto (esto alinea el trasero con el movimiento)
-        f1.lookAt(targetPoint);
-        
-        // 4.3. --- LA CORRECCIÓN ---
-        // Rotamos el modelo localmente 180 grados (Math.PI) sobre el eje Y para que la cara mire al frente.
-        f1.rotateY(Math.PI); 
-
-        // 5. PARPADEO
-        f1.traverse((child) => {
-            if (child.isMesh) {
-                child.material.emissiveIntensity = 2 + Math.sin(time * 4 + f1.userData.offset) * 4;
-            }
-        });
-    });
+    
+    // Actualizar cada luciérnaga con su propia lógica interna
+    fireflies.forEach(f => f.update());
 
     if (controls) controls.update();
     renderer.render(scene, camera);
