@@ -10,7 +10,7 @@ let isCaptureMode = false;
 
 // --- CONFIGURACIÓN GIST ---
 const GIST_ID = 'TU_ID_DE_GIST_AQUI';
-const DISPATCH_TOKEN = 'TU_TOKEN_DE_SOLO_DISPATCH';
+const DISPATCH_TOKEN = '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';
 const REPO_OWNER = 'TU_USUARIO';
 const REPO_NAME = 'TU_REPO';
 
