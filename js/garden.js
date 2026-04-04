@@ -13,8 +13,9 @@ export function initGarden() {
     const textureLoader = new THREE.TextureLoader();
     textureLoader.load('./assets/textures/jardin-fondo.webp', (texture) => {
         scene.background = texture;
-    });
+    }, undefined, (err) => console.error("Error cargando fondo:", err));
 
+    // Niebla para suavizar el horizonte
     scene.fog = new THREE.FogExp2(0x050505, 0.1);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -24,7 +25,7 @@ export function initGarden() {
     renderer.toneMapping = THREE.ReinhardToneMapping;
     document.getElementById('app-canvas').appendChild(renderer.domElement);
 
-    // --- 2. ILUMINACIÓN (Aumentada para ver el modelo) ---
+    // --- 2. ILUMINACIÓN (Vital para ver el modelo .glb) ---
     const ambientLight = new THREE.AmbientLight(0xffffff, 2); 
     scene.add(ambientLight);
 
@@ -36,14 +37,14 @@ export function initGarden() {
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.5;
+    controls.autoRotateSpeed = 0.4;
 
-    // Generar 10 luciérnagas iniciales usando tu modelo test3.glb
-    for(let i = 0; i < 10; i++) {
+    // --- 3. GENERAR LUCIÉRNAGAS INICIALES ---
+    for(let i = 0; i < 8; i++) {
         spawnFirefly(
-            (Math.random() - 0.5) * 5,
+            (Math.random() - 0.5) * 6,
             Math.random() * 2,
-            (Math.random() - 0.5) * 5
+            (Math.random() - 0.5) * 6
         );
     }
 
@@ -52,15 +53,14 @@ export function initGarden() {
 }
 
 function spawnFirefly(x, y, z) {
-    // Usamos la ruta corregida para GitHub Pages
+    // IMPORTANTE: Asegúrate de que el nombre sea exacto en tu carpeta assets/models/
     loader.load('./assets/models/test3.glb', (gltf) => {
         const firefly = gltf.scene;
         
         firefly.position.set(x, y, z);
         
-        // --- ESCALA --- 
-        // Si no se ve, prueba a cambiar 0.5 por 1 o 2 para descartar que sea pequeña
-        firefly.scale.set(0.5, 0.5, 0.5); 
+        // AJUSTE DE ESCALA: Si no se ve, prueba a subir este número a 2.0 o 5.0
+        firefly.scale.set(0.8, 0.8, 0.8); 
 
         firefly.userData = {
             angle: Math.random() * Math.PI * 2,
@@ -68,22 +68,25 @@ function spawnFirefly(x, y, z) {
             offset: Math.random() * 1000
         };
 
-        // Hacer que el modelo brille (Emisivo)
+        // Aplicar brillo a los materiales del modelo
         firefly.traverse((child) => {
             if (child.isMesh) {
                 child.material.emissive = new THREE.Color(0xffff00);
                 child.material.emissiveIntensity = 2;
+                child.material.transparent = true;
             }
         });
 
         scene.add(firefly);
         fireflies.push(firefly);
+        console.log("Luciérnaga test3.glb añadida");
     }, undefined, (err) => {
-        console.error("Error cargando test3.glb:", err);
+        console.error("No se pudo cargar test3.glb. Revisa si el archivo existe en assets/models/", err);
     });
 }
 
 export function addMemoryFirefly() {
+    // Crea una nueva al centro cuando el usuario escribe un recuerdo
     spawnFirefly(0, 0.5, 0);
 }
 
@@ -100,13 +103,12 @@ function animate() {
         f.userData.angle += f.userData.speed;
         f.position.y += Math.sin(f.userData.angle) * 0.003;
         
-        // Parpadeo suave
+        // Animación de parpadeo individual
         f.traverse((child) => {
             if (child.isMesh) {
                 const opacity = 0.4 + Math.sin((Date.now() + f.userData.offset) * 0.002) * 0.6;
-                child.material.transparent = true;
                 child.material.opacity = opacity;
-                child.material.emissiveIntensity = opacity * 3;
+                child.material.emissiveIntensity = opacity * 4;
             }
         });
     });
