@@ -192,7 +192,7 @@ class Firefly {
         
         // Latido del aura (accediendo directamente a la propiedad de la clase)
         if(this.glowSprite) {
-            this.glowSprite.scale.setScalar(1.2 + Math.sin(time * 5 + this.phase) * 0.4);
+            this.glowSprite.scale.setScalar(4 + Math.sin(time * 5 + this.phase) * 0.4);
         }
 
         this.group.position.y += Math.sin(time * 2 + this.phase) * 0.005;
