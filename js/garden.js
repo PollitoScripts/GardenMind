@@ -14,7 +14,7 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 const LIME = '#ccff00';
 
-// --- 1. TEXTURA DE RESPLANDOR (LA QUE TE GUSTA) ---
+// --- 1. TEXTURA DE RESPLANDOR NEÓN ---
 function createGlowTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 128; canvas.height = 128;
@@ -30,7 +30,7 @@ function createGlowTexture() {
 }
 const glowTexture = createGlowTexture();
 
-// --- 2. INTERFAZ ---
+// --- 2. INYECCIÓN DE UI Y ESTILOS ---
 function injectUI() {
     const styles = `
         .game-ui { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 15px; z-index: 100; pointer-events: auto; }
@@ -38,15 +38,23 @@ function injectUI() {
         .ui-btn img { width: 50px; height: 50px; display: block; }
         .ui-btn.active { background: rgba(204, 255, 0, 0.4); box-shadow: 0 0 20px ${LIME}; transform: scale(1.1); }
         .count-badge { position: absolute; top: -5px; right: -5px; background: ${LIME}; color: black; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; }
+        
         .toast { position: fixed; top: 30px; left: 50%; transform: translateX(-50%); background: ${LIME}; color: black; padding: 12px 30px; border-radius: 50px; font-weight: bold; opacity: 0; transition: 0.5s; z-index: 4000; pointer-events: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .inventory-overlay { position: fixed; inset: 0; background: radial-gradient(circle at center, #1a1a2e 0%, #020205 100%); z-index: 2000; display: none; flex-direction: column; align-items: center; color: ${LIME}; font-family: sans-serif; overflow-y: auto; padding: 80px 20px 40px 20px; }
+
+        .inventory-overlay { 
+            position: fixed; inset: 0; background: radial-gradient(circle at center, #1a1a2e 0%, #020205 100%); 
+            z-index: 2000; display: none; flex-direction: column; align-items: center; color: ${LIME}; font-family: sans-serif; overflow-y: auto; padding: 80px 20px 40px 20px;
+        }
         .inventory-overlay.active { display: flex; }
         .inv-title { font-size: 32px; margin-bottom: 10px; text-shadow: 0 0 10px rgba(204,255,0,0.3); }
         .memories-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 25px; width: 100%; max-width: 900px; margin-top: 40px; }
+        
         .memory-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(204, 255, 0, 0.2); border-radius: 20px; padding: 25px; text-align: center; cursor: pointer; transition: 0.3s; }
         .memory-card:hover { background: rgba(204, 255, 0, 0.1); transform: translateY(-5px); border-color: ${LIME}; }
+
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 3000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(10px); padding: 20px; }
         .modal-content { background: #16213e; padding: 35px; border-radius: 30px; border: 1px solid ${LIME}; width: 100%; max-width: 450px; text-align: center; color: white; position: relative; }
+        .img-slot { width: 100%; height: 200px; border: 1px dashed rgba(204,255,0,0.4); border-radius: 20px; margin-bottom: 25px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-style: italic; }
         .close-btn { background: none; border: 1px solid ${LIME}; color: ${LIME}; border-radius: 50px; padding: 10px 25px; cursor: pointer; margin-top: 25px; transition: 0.2s; }
         .close-btn:hover { background: ${LIME}; color: black; }
     `;
@@ -68,7 +76,7 @@ function injectUI() {
     const toast = document.createElement('div');
     toast.id = 'toast-msg';
     toast.className = 'toast';
-    toast.innerText = 'Recuerdo atrapado...';
+    toast.innerText = 'Recuerdo atrapado, ve a tu inventario...';
     document.body.appendChild(toast);
 
     const inv = document.createElement('div');
@@ -77,6 +85,7 @@ function injectUI() {
     inv.innerHTML = `
         <button class="close-btn" style="margin: 0 0 40px 0;" onclick="document.getElementById('inv-overlay').classList.remove('active')">← Volver al Jardín</button>
         <h1 class="inv-title">Mis Luces Guardadas</h1>
+        <p style="opacity: 0.7;">Momentos mágicos capturados</p>
         <div id="memories-grid" class="memories-grid"></div>
     `;
     document.body.appendChild(inv);
@@ -84,7 +93,15 @@ function injectUI() {
     const modal = document.createElement('div');
     modal.id = 'mem-modal';
     modal.className = 'modal';
-    modal.innerHTML = `<div class="modal-content"><h2 id="m-title" style="color:${LIME}"></h2><p id="m-date"></p><button class="close-btn" onclick="document.getElementById('mem-modal').style.display='none'">Cerrar</button></div>`;
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="img-slot">Espacio para fotografía</div>
+            <h2 id="m-title" style="color:${LIME}; margin: 0 0 10px 0;"></h2>
+            <p id="m-date" style="font-size:12px; opacity:0.6; margin-bottom: 20px;"></p>
+            <p id="m-desc" style="font-size:14px; line-height: 1.6; opacity: 0.9;">Aquí podrás escribir la historia de este recuerdo muy pronto...</p>
+            <button class="close-btn" onclick="document.getElementById('mem-modal').style.display='none'">Cerrar Detalle</button>
+        </div>
+    `;
     document.body.appendChild(modal);
 
     document.getElementById('net-btn').onclick = (e) => {
@@ -96,16 +113,21 @@ function injectUI() {
     document.getElementById('jar-btn').onclick = openInventory;
 }
 
+// --- 3. LÓGICA DE INVENTARIO ---
 function openInventory() {
     const grid = document.getElementById('memories-grid');
     grid.innerHTML = '';
     capturedMemories.forEach((mem, index) => {
         const card = document.createElement('div');
         card.className = 'memory-card';
-        card.innerHTML = `<p>Recuerdo #${index + 1}</p>`;
+        card.innerHTML = `
+            <img src="./assets/images/jar-item.png" style="width:60px; margin-bottom:15px;">
+            <p style="font-weight:bold; margin:0;">Recuerdo #${index + 1}</p>
+            <p style="font-size:11px; opacity:0.6; margin-top:5px;">${mem.date}</p>
+        `;
         card.onclick = () => {
-            document.getElementById('m-title').innerText = `Luz #${index + 1}`;
-            document.getElementById('m-date').innerText = `Guardado el ${mem.date}`;
+            document.getElementById('m-title').innerText = `Luz capturada #${index + 1}`;
+            document.getElementById('m-date').innerText = `Guardado el ${mem.date} a las ${mem.time}`;
             document.getElementById('mem-modal').style.display = 'flex';
         };
         grid.appendChild(card);
@@ -119,7 +141,7 @@ function showToast() {
     setTimeout(() => { t.style.opacity = '0'; }, 3000);
 }
 
-// --- 3. CLASE FIREFLY (MEZCLA PERFECTA) ---
+// --- 4. CLASE FIREFLY (CON GLOW ÉPICO Y POSICIÓN TRASERA) ---
 class Firefly {
     constructor(model, x, y, z) {
         this.group = new THREE.Group();
@@ -150,10 +172,8 @@ class Firefly {
                     });
                     this.glowSprite = new THREE.Sprite(spriteMat);
                     
-                    // --- AQUÍ EL AJUSTE PARA EL "CULO" ---
-                    // x=0 (centro), y=0.5 (un poco arriba), z=-1.2 (hacia atrás)
+                    // AJUSTE POSICIÓN TRASERA: x=0, y=0.5 (arriba), z=-1.2 (atrás)
                     this.glowSprite.position.set(0, 0.5, -1.2); 
-                    
                     child.add(this.glowSprite);
                 } else {
                     child.material = new THREE.MeshStandardMaterial({ color: 0x010101, roughness: 1 });
@@ -164,22 +184,20 @@ class Firefly {
     }
 
     update(time) {
-        // Movimiento
         this.group.position.add(this.velocity);
         this.velocity.x += Math.sin(time * 0.4 + this.phase) * 0.002;
         this.velocity.y += Math.cos(time * 0.5 + this.phase) * 0.002;
         this.velocity.z += Math.sin(time * 0.3 + this.phase) * 0.002;
         this.velocity.clampLength(0.01, 0.08);
 
-        // Rotación
         const direction = this.velocity.clone().normalize();
         this.group.rotation.y = Math.atan2(direction.x, direction.z) + Math.PI;
 
-        // Latido del brillo (Copiado de tu código favorito)
+        // LATIDO POTENTE (8 a 20 de escala)
         const pulse = Math.pow((Math.sin(time * 3 + this.phase) + 1) / 2, 4);
         if (this.glowSprite) {
             this.glowSprite.material.opacity = 0.4 + (pulse * 0.6);
-            const s = 10 + (pulse * 12); // Brillo mucho más grande
+            const s = 10 + (pulse * 12); 
             this.glowSprite.scale.set(s, s, 1);
         }
     }
@@ -189,14 +207,17 @@ class Firefly {
         const index = fireflies.indexOf(this);
         if (index > -1) fireflies.splice(index, 1);
         const now = new Date();
-        capturedMemories.push({ date: now.toLocaleDateString(), time: now.toLocaleTimeString() });
+        capturedMemories.push({
+            date: now.toLocaleDateString(),
+            time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
         caughtCount++;
         document.getElementById('jar-count').innerText = caughtCount;
         showToast();
     }
 }
 
-// --- 4. MOTOR PRINCIPAL ---
+// --- 5. MOTOR DEL JARDÍN ---
 export function initGarden() {
     scene = new THREE.Scene();
     injectUI();
@@ -209,10 +230,12 @@ export function initGarden() {
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     document.getElementById('app-canvas').appendChild(renderer.domElement);
 
     scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
@@ -237,7 +260,7 @@ export function initGarden() {
         requestAnimationFrame(animate);
         const time = performance.now() * 0.001;
         fireflies.forEach(f => f.update(time));
-        if (controls) controls.update();
+        if (controls && controls.enabled) controls.update();
         renderer.render(scene, camera);
     }
     animate();
