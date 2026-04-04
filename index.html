@@ -91,34 +91,34 @@
             "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
         }
     }
-	</script>
+</script>
 
-	<script type="module">
-		// Importamos las funciones DESDE el archivo externo
-		// Nota: He quitado el "./" inicial que suele dar problemas en GitHub Pages
-		import { initGarden, addMemoryFirefly } from 'js/garden.js';
+<script type="module">
+    // Importamos las funciones DESDE el archivo externo
+    // Nota: He quitado el "./" inicial que suele dar problemas en GitHub Pages
+    import { initGarden, addMemoryFirefly } from 'js/garden.js';
 
-		// Inicializamos el jardín 3D
-		initGarden();
+    // Inicializamos el jardín 3D
+    initGarden();
 
-		// Animación de entrada de la caja de texto
-		window.onload = () => {
-			const box = document.getElementById('memory-box');
-			box.style.opacity = '1';
-			box.style.transform = 'translateY(0)';
-		};
+    // Animación de entrada de la caja de texto
+    window.onload = () => {
+        const box = document.getElementById('memory-box');
+        box.style.opacity = '1';
+        box.style.transform = 'translateY(0)';
+    };
 
-		// Conexión del botón con la función del jardín
-		const btnSave = document.getElementById('btn-save');
-		const textInput = document.getElementById('text-input');
+    // Conexión del botón con la función del jardín
+    const btnSave = document.getElementById('btn-save');
+    const textInput = document.getElementById('text-input');
 
-		btnSave.addEventListener('click', () => {
-			if(textInput.value.trim() !== "") {
-				addMemoryFirefly(); // <--- Esta función viene de garden.js
-				textInput.value = "";
-				console.log("¡Luciérnaga soltada!");
-			}
-		});
-	</script>
+    btnSave.addEventListener('click', () => {
+        if(textInput.value.trim() !== "") {
+            addMemoryFirefly(); // <--- Esta función viene de garden.js
+            textInput.value = "";
+            console.log("¡Luciérnaga soltada!");
+        }
+    });
+</script>
 </body>
 </html>
