@@ -232,7 +232,9 @@ export function initGarden() {
     loader.load('./assets/models/test3.glb', (gltf) => {
         fireflyModel = gltf.scene;
         for(let i=0; i<15; i++) {
-            fireflies.push(new Firefly(fireflyModel, (Math.random()-0.5)*15, Math.random()*5+1, (Math.random()-0.5)*10));
+            // Creamos la luciérnaga y LA METEMOS en el array global
+            const f = new Firefly(fireflyModel, (Math.random()-0.5)*15, Math.random()*5+1, (Math.random()-0.5)*10);
+            fireflies.push(f);
         }
     });
 
@@ -242,29 +244,30 @@ export function initGarden() {
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObjects(scene.children, true);
-        const hit = intersects.find(i => i.object.userData.isFirefly);
+        const hit = intersects.find(i => i.object.userData && i.object.userData.isFirefly);
         if (hit) hit.object.userData.parentRef.capture();
     });
 
+    // Definimos la función de animación dentro de initGarden
     function animate() {
-    requestAnimationFrame(animate);
-    
-    // Delta time (o tiempo absoluto)
-    const time = performance.now() * 0.001;
+        requestAnimationFrame(animate);
+        
+        const time = performance.now() * 0.001;
 
-    // Recorremos el array de luciérnagas
-    for (let i = 0; i < fireflies.length; i++) {
-        if (fireflies[i]) {
-            fireflies[i].update(time);
+        // Actualizamos cada luciérnaga
+        for (let i = 0; i < fireflies.length; i++) {
+            if (fireflies[i] && fireflies[i].update) {
+                fireflies[i].update(time);
+            }
         }
+
+        if (controls && controls.enabled) {
+            controls.update();
+        }
+
+        renderer.render(scene, camera);
     }
 
-    // Si los controles están activados, actualizamos la cámara
-    if (controls && controls.enabled) {
-        controls.update();
-    }
-
-    renderer.render(scene, camera);
-}
+    // Lanzas la animación por primera vez
     animate();
 }
