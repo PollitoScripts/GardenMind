@@ -87,18 +87,25 @@
     </script>
 
     <script type="module">
-        // Importamos solo initGarden. 
-        // La lógica de los botones y el inventario ahora vive dentro de garden.js
-        import { initGarden } from './js/garden.js?v=4';
+        // Importamos initGarden. 
+        // Usamos una versión (v=4.1) para forzar al navegador a limpiar caché tras los cambios
+        import { initGarden } from './js/garden.js?v=4.1';
 
-        window.onload = () => {
+        // Usamos una función asíncrona para iniciar el jardín
+        async function start() {
             try {
-                initGarden();
-                console.log("Jardín inicializado correctamente.");
+                // Esperamos a que la base de datos y la UI se carguen antes de decir que está OK
+                await initGarden();
+                console.log("Jardín inicializado correctamente con sincronización Gist.");
             } catch (error) {
-                console.error("Error al cargar el jardín:", error);
+                console.error("Error crítico al cargar el jardín:", error);
+                // Si falla, al menos mostramos un mensaje en pantalla para no ver solo negro
+                document.body.innerHTML += `<div style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); color:red;">Error al conectar con el jardín. Revisa la consola.</div>`;
             }
-        };
+        }
+
+        // Ejecutamos la carga
+        window.onload = start;
     </script>
 </body>
 </html>
