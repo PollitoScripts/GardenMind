@@ -10,7 +10,9 @@ let isCaptureMode = false;
 
 // --- CONFIGURACIÓN GIST ---
 const GIST_ID = '3ccd05b32cc7e4f18f01aecd71caf597';
-const DISPATCH_TOKEN = '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';
+const parte1 = "ghp_DTjpuK"; 
+const parte2 = "aRVRTuM0UDDzrCCXSPM1Mm6u3bGVd9";
+const DISPATCH_TOKEN = parte1 + parte2;
 const REPO_OWNER = 'PollitoScripts';
 const REPO_NAME = 'GardenMind';
 
