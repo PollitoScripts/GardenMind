@@ -7,41 +7,37 @@ const fireflies = [];
 const loader = new GLTFLoader();
 let fireflyModel = null; 
 
-// --- 1. CLASE FIREFLY (Vuelo Suave y Contraste Alto) ---
+// --- 1. CLASE FIREFLY (Lógica Laravel + Brillo Irradiante) ---
 class Firefly {
     constructor(model, x, y, z) {
         this.mesh = model.clone();
         this.position = new THREE.Vector3(x, y, z);
         
-        // Velocidad inicial suave para evitar el caos
+        // Tu lógica de velocidad original de Laravel
         this.velocity = new THREE.Vector3(
-            (Math.random() - 0.5) * 0.03, 
-            (Math.random() - 0.5) * 0.03, 
-            (Math.random() - 0.5) * 0.03
+            (Math.random() - 0.5) * 0.05, 
+            (Math.random() - 0.5) * 0.05, 
+            (Math.random() - 0.5) * 0.05
         );
-        this.acceleration = new THREE.Vector3();
-        this.maxSpeed = 0.04; 
-        this.maxForce = 0.005; // Fuerza de giro suave
-        this.offset = Math.random() * Math.PI * 2;
+        this.phase = Math.random() * Math.PI * 2;
         
         this.mesh.scale.set(0.12, 0.12, 0.12);
         this.mesh.position.copy(this.position);
 
-        // --- CALIBRACIÓN DE COLORES (Contraste Máximo) ---
+        // --- CONFIGURACIÓN DE MATERIALES ---
         this.mesh.traverse((child) => {
             if (child.isMesh) {
-                child.material = child.material.clone(); // Material único por bicho
+                child.material = child.material.clone();
                 
-                if (child.name.includes("Luz")) {
-                    // LA LUZ: Verde-Lima Neón muy saturado
-                    child.material.color.set(0xccff00); 
+                // Buscamos la parte "Luz" según tu captura de Blender
+                if (child.name.toLowerCase().includes("luz")) {
+                    child.material.color.set(0xccff00); // Verde-Amarillo
                     child.material.emissive.set(0xccff00);
-                    child.material.emissiveIntensity = 20; // Brillo base muy alto
+                    child.material.emissiveIntensity = 20; // Brillo base fuerte
                 } else {
-                    // EL CUERPO: Negro absoluto para que la luz destaque
-                    child.material.color.set(0x000000); 
+                    // Cuerpo oscuro pero con un toque de color para que no sea un hueco negro
+                    child.material.color.set(0x111111); 
                     child.material.emissiveIntensity = 0;
-                    child.material.roughness = 1; // Mate, no brilla con la luz ambiental
                 }
             }
         });
@@ -50,127 +46,96 @@ class Firefly {
     }
 
     update(time) {
-        // 1. MOVIMIENTO (Wander suave)
-        // Solo cambiamos de dirección el 2% de las veces para que vuelen más "recto"
-        if (Math.random() < 0.02) {
-            let steer = new THREE.Vector3(
-                (Math.random() - 0.5) * 0.02,
-                (Math.random() - 0.5) * 0.02,
-                (Math.random() - 0.5) * 0.02
-            );
-            this.acceleration.add(steer);
-        }
-
-        this.velocity.add(this.acceleration);
-        this.velocity.clampLength(0.01, this.maxSpeed); // Evitamos que se paren
+        // --- MOVIMIENTO (Tu lógica exacta de Laravel) ---
         this.position.add(this.velocity);
-        this.acceleration.multiplyScalar(0);
-        this.mesh.position.copy(this.position);
-        
-        // 2. --- ROTACIÓN SUAVE (Elimina el nerviosismo de cabeza) ---
-        if (this.velocity.lengthSq() > 0.001) {
-            // Creamos una matriz temporal para calcular hacia dónde debería mirar
-            const tempMatrix = new THREE.Matrix4();
-            const targetPos = this.position.clone().add(this.velocity);
-            
-            //lookAt(target, eye, up)
-            tempMatrix.lookAt(targetPos, this.position, new THREE.Vector3(0, 1, 0));
-            
-            const targetQuaternion = new THREE.Quaternion().setFromRotationMatrix(tempMatrix);
-            
-            // Interpolar: 0.05 es la suavidad del giro. 
-            // Si quieres que gire más lento y natural, baja a 0.03.
-            this.mesh.quaternion.slerp(targetQuaternion, 0.05);
-            
-            // Corrección de 180º para que la cabeza vaya delante
-            this.mesh.rotateY(Math.PI); 
-        }
+        this.velocity.x += Math.sin(time * 0.4 + this.phase) * 0.002;
+        this.velocity.y += Math.cos(time * 0.5 + this.phase) * 0.002;
+        this.velocity.z += Math.sin(time * 0.3 + this.phase) * 0.002;
+        this.velocity.clampLength(0, 0.09);
 
-        // 3. --- EFECTO LATIDO CORAZÓN (Intensidad Bestial) ---
-        const pulse = Math.sin(time * 2.5 + this.offset); 
-        // Normalizamos el valor de 0 a 1 y escalamos de 10 a 30 de brillo
-        const intensity = 10 + (pulse + 1) * 10; 
+        this.mesh.position.copy(this.position);
+
+        // --- ROTACIÓN (atan2 para que miren al frente sin vibrar) ---
+        const direction = this.velocity.clone().normalize();
+        const targetRotationY = Math.atan2(direction.x, direction.z) + Math.PI;
+        let diff = targetRotationY - this.mesh.rotation.y;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        this.mesh.rotation.y += diff * 0.05;
+
+        // --- EFECTO CORAZÓN PALPITANTE ---
+        // Usamos una potencia para que el "latido" sea más orgánico (rápido al brillar, suave al apagar)
+        const pulse = Math.pow((Math.sin(time * 2.5 + this.phase) + 1) / 2, 3);
+        const intensity = 5 + pulse * 40; // Oscila entre 5 y 45 de brillo
 
         this.mesh.traverse((child) => {
-            if (child.isMesh && child.name.includes("Luz")) {
+            if (child.isMesh && child.name.toLowerCase().includes("luz")) {
                 child.material.emissiveIntensity = intensity;
             }
         });
 
-        // 4. LÍMITES (Rebote suave)
-        const limit = 7;
-        if (Math.abs(this.position.x) > limit) this.velocity.x *= -0.8;
-        if (this.position.y > 6 || this.position.y < 0.5) this.velocity.y *= -0.8;
-        if (Math.abs(this.position.z) > limit) this.velocity.z *= -0.8;
+        // --- LÍMITES DEL JARDÍN ---
+        const limitX = 10, limitY = 6, limitZ = 8;
+        if (Math.abs(this.position.x) > limitX) this.velocity.x *= -0.5;
+        if (this.position.y > limitY || this.position.y < 0.5) this.velocity.y *= -0.5;
+        if (Math.abs(this.position.z) > limitZ) this.velocity.z *= -0.5;
     }
 }
 
-// --- 2. MOTOR DEL JARDÍN (Init y Animate) ---
+// --- 2. MOTOR DEL JARDÍN ---
 
 export function initGarden() {
     scene = new THREE.Scene();
 
-    // 1. FONDO (Asegúrate de que la ruta sea correcta)
+    // Carga de Fondo
     const textureLoader = new THREE.TextureLoader();
-    textureLoader.load('./assets/textures/jardin-fondo.webp', 
-        (texture) => {
-            scene.background = texture;
-            console.log("Imagen de fondo cargada con éxito");
-        },
-        undefined,
-        (err) => {
-            console.error("Error cargando el fondo, revisa la ruta:", err);
-            // Si falla la imagen, ponemos un color azul oscuro para no ver negro
-            scene.background = new THREE.Color(0x020205); 
-        }
-    );
+    textureLoader.load('./assets/textures/jardin-fondo.webp', (texture) => {
+        scene.background = texture;
+    });
 
-    // 2. NIEBLA (¡CUIDADO AQUÍ!) 
-    // Si la ves negra, comenta esta línea para descartar que sea el problema
-    // scene.fog = new THREE.FogExp2(0x050505, 0.03); 
-
-    // 3. CÁMARA (Ajusta la posición para estar cerca del centro)
+    // Cámara
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 2, 10); 
+    camera.position.set(0, 3, 12);
 
-    // 4. LUCES
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2); 
-    scene.add(ambientLight);
-
-    // 5. RENDERER
+    // Renderer con Bloom/Brillo habilitado
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     
-    // Si esto está muy bajo (ej: 0.1), se verá todo negro
+    // Configuración vital para que el "emissive" brille de verdad
     renderer.toneMapping = THREE.ReinhardToneMapping;
-    renderer.toneMappingExposure = 1.5; 
+    renderer.toneMappingExposure = 2.0; 
 
     document.getElementById('app-canvas').appendChild(renderer.domElement);
 
-    // 6. CONTROLES Y MODELO
+    // Luz ambiental (ajustada para que el fondo se vea pero no mate el brillo)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); 
+    scene.add(ambientLight);
+
+    // Controles
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
+    // Carga del Modelo
     loader.load('./assets/models/test3.glb', (gltf) => {
         fireflyModel = gltf.scene;
-        for(let i = 0; i < 6; i++) {
+        for(let i = 0; i < 10; i++) {
             fireflies.push(new Firefly(
                 fireflyModel, 
-                (Math.random() - 0.5) * 5, 
-                Math.random() * 3, 
-                (Math.random() - 0.5) * 5
+                (Math.random() - 0.5) * 15, 
+                Math.random() * 4 + 1, 
+                (Math.random() - 0.5) * 10
             ));
         }
     });
 
+    window.addEventListener('resize', onWindowResize);
     animate();
 }
 
 export function addMemoryFirefly() {
     if (fireflyModel) {
-        // Nace una en el centro al pulsar el botón
-        fireflies.push(new Firefly(fireflyModel, 0, 1, 0));
+        fireflies.push(new Firefly(fireflyModel, 0, 2, 0));
     }
 }
 
@@ -182,9 +147,8 @@ function onWindowResize() {
 
 function animate() {
     requestAnimationFrame(animate);
-    const time = Date.now() * 0.001;
+    const time = performance.now() * 0.001;
 
-    // Actualizamos todas las luciérnagas usando su clase
     fireflies.forEach(f => f.update(time));
 
     if (controls) controls.update();
