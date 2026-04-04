@@ -94,27 +94,26 @@
 </script>
 
 <script type="module">
-    // Importamos las funciones DESDE el archivo externo
-    // Nota: He quitado el "./" inicial que suele dar problemas en GitHub Pages
-    import { initGarden, addMemoryFirefly } from 'js/garden.js';
+    import { initGarden, addMemoryFirefly } from './js/garden.js';
 
-    // Inicializamos el jardín 3D
-    initGarden();
-
-    // Animación de entrada de la caja de texto
+    // Ejecutamos todo cuando la ventana esté lista
     window.onload = () => {
+        // 1. Inicializar el 3D
+        initGarden();
+
+        // 2. Animación de la interfaz
         const box = document.getElementById('memory-box');
         box.style.opacity = '1';
         box.style.transform = 'translateY(0)';
     };
 
-    // Conexión del botón con la función del jardín
+    // Conexión del botón
     const btnSave = document.getElementById('btn-save');
     const textInput = document.getElementById('text-input');
 
     btnSave.addEventListener('click', () => {
         if(textInput.value.trim() !== "") {
-            addMemoryFirefly(); // <--- Esta función viene de garden.js
+            addMemoryFirefly(); 
             textInput.value = "";
             console.log("¡Luciérnaga soltada!");
         }
