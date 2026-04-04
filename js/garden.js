@@ -291,12 +291,19 @@ class Firefly {
 
 // --- 6. MOTOR DEL JARDÍN ---
 export async function initGarden() {
-    // Primero cargamos los datos
-    const ready = await loadUniquePool();
-    if (!ready) return;
-
-    scene = new THREE.Scene();
+    // 1. IMPORTANTE: Primero inyectamos la interfaz (HTML/CSS)
+    // para que existan los elementos 'jar-count', etc.
     injectUI();
+
+    // 2. Cargamos los datos del Gist
+    const ready = await loadUniquePool();
+    if (!ready) {
+        console.error("No se pudo cargar el Pool de luciérnagas.");
+        return;
+    }
+
+    // 3. Iniciamos Three.js normalmente
+    scene = new THREE.Scene();
 
     const textureLoader = new THREE.TextureLoader();
     textureLoader.load('./assets/textures/jardin-fondo.webp', (t) => { scene.background = t; });
@@ -308,16 +315,19 @@ export async function initGarden() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    document.getElementById('app-canvas').appendChild(renderer.domElement);
+    
+    const container = document.getElementById('app-canvas');
+    if (container) container.appendChild(renderer.domElement);
 
     scene.add(new THREE.AmbientLight(0xffffff, 1.2));
 
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
+    // 4. Cargamos el modelo y usamos la función de pool único
     loader.load('./assets/models/test3.glb', (gltf) => {
         fireflyModel = gltf.scene;
-        // Spawneamos las 9 iniciales
+        // En lugar de un bucle for simple, usamos tu nueva función
         spawnUniqueFireflies();
     });
 
@@ -339,4 +349,5 @@ export async function initGarden() {
         renderer.render(scene, camera);
     }
     animate();
+    console.log("Jardín sincronizado con Gist inicializado.");
 }
