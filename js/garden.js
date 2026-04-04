@@ -9,13 +9,11 @@ const loader = new GLTFLoader();
 export function initGarden() {
     scene = new THREE.Scene();
     
-    // --- 1. CARGAR EL FONDO ---
     const textureLoader = new THREE.TextureLoader();
     textureLoader.load('./assets/textures/jardin-fondo.webp', (texture) => {
         scene.background = texture;
-    }, undefined, (err) => console.error("Error cargando fondo:", err));
+    });
 
-    // Niebla para suavizar el horizonte
     scene.fog = new THREE.FogExp2(0x050505, 0.1);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -25,26 +23,20 @@ export function initGarden() {
     renderer.toneMapping = THREE.ReinhardToneMapping;
     document.getElementById('app-canvas').appendChild(renderer.domElement);
 
-    // --- 2. ILUMINACIÓN (Vital para ver el modelo .glb) ---
+    // Iluminación fuerte para no perder el modelo
     const ambientLight = new THREE.AmbientLight(0xffffff, 2); 
     scene.add(ambientLight);
 
-    const moonLight = new THREE.DirectionalLight(0x2233ff, 1);
-    moonLight.position.set(5, 10, 5);
-    scene.add(moonLight);
-
-    camera.position.set(0, 1, 4);
+    camera.position.set(0, 1, 5);
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.4;
 
-    // --- 3. GENERAR LUCIÉRNAGAS INICIALES ---
-    for(let i = 0; i < 8; i++) {
+    // Solo cargamos luciérnagas
+    for(let i = 0; i < 5; i++) {
         spawnFirefly(
-            (Math.random() - 0.5) * 6,
+            (Math.random() - 0.5) * 5,
             Math.random() * 2,
-            (Math.random() - 0.5) * 6
+            (Math.random() - 0.5) * 5
         );
     }
 
@@ -53,41 +45,31 @@ export function initGarden() {
 }
 
 function spawnFirefly(x, y, z) {
-    // IMPORTANTE: Asegúrate de que el nombre sea exacto en tu carpeta assets/models/
+    // RUTA CRÍTICA: Asegúrate que test3.glb esté en assets/models/
     loader.load('./assets/models/test3.glb', (gltf) => {
         const firefly = gltf.scene;
-        
         firefly.position.set(x, y, z);
         
-        // AJUSTE DE ESCALA: Si no se ve, prueba a subir este número a 2.0 o 5.0
-        firefly.scale.set(0.8, 0.8, 0.8); 
+        // Probamos con escala 1.0. Si no se ve, súbela a 5.0 luego.
+        firefly.scale.set(10, 10, 10); 
 
-        firefly.userData = {
-            angle: Math.random() * Math.PI * 2,
-            speed: 0.005 + Math.random() * 0.01,
-            offset: Math.random() * 1000
-        };
-
-        // Aplicar brillo a los materiales del modelo
         firefly.traverse((child) => {
             if (child.isMesh) {
                 child.material.emissive = new THREE.Color(0xffff00);
-                child.material.emissiveIntensity = 2;
-                child.material.transparent = true;
+                child.material.emissiveIntensity = 5;
             }
         });
 
         scene.add(firefly);
         fireflies.push(firefly);
-        console.log("Luciérnaga test3.glb añadida");
+        console.log("¡Luciérnaga test3.glb cargada con éxito!");
     }, undefined, (err) => {
-        console.error("No se pudo cargar test3.glb. Revisa si el archivo existe en assets/models/", err);
+        console.error("Error cargando test3.glb:", err);
     });
 }
 
 export function addMemoryFirefly() {
-    // Crea una nueva al centro cuando el usuario escribe un recuerdo
-    spawnFirefly(0, 0.5, 0);
+    spawnFirefly(0, 1, 0);
 }
 
 function onWindowResize() {
@@ -98,21 +80,9 @@ function onWindowResize() {
 
 function animate() {
     requestAnimationFrame(animate);
-
     fireflies.forEach(f => {
-        f.userData.angle += f.userData.speed;
-        f.position.y += Math.sin(f.userData.angle) * 0.003;
-        
-        // Animación de parpadeo individual
-        f.traverse((child) => {
-            if (child.isMesh) {
-                const opacity = 0.4 + Math.sin((Date.now() + f.userData.offset) * 0.002) * 0.6;
-                child.material.opacity = opacity;
-                child.material.emissiveIntensity = opacity * 4;
-            }
-        });
+        f.position.y += Math.sin(Date.now() * 0.001 + f.position.x) * 0.002;
     });
-
     if (controls) controls.update();
     renderer.render(scene, camera);
 }
