@@ -6,9 +6,13 @@ let scene, camera, renderer, controls;
 const fireflies = [];
 const loader = new GLTFLoader();
 let fireflyModel = null;
-let caughtCount = 0;
 let isCaptureMode = false;
-const capturedMemories = [];
+
+// --- CONFIGURACIÓN GIST ---
+const GIST_ID = 'TU_ID_DE_GIST_AQUI';
+const DISPATCH_TOKEN = 'TU_TOKEN_DE_SOLO_DISPATCH';
+const REPO_OWNER = 'TU_USUARIO';
+const REPO_NAME = 'TU_REPO';
 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -30,7 +34,39 @@ function createGlowTexture() {
 }
 const glowTexture = createGlowTexture();
 
-// --- 2. INYECCIÓN DE UI Y ESTILOS ---
+// --- 2. GESTIÓN DE BASE DE DATOS (GIST) ---
+async function loadUniquePool() {
+    try {
+        const res = await fetch(`https://api.github.com/gists/${GIST_ID}`);
+        const gist = await res.json();
+        const db = JSON.parse(gist.files["memories.json"].content);
+
+        window.availablePool = db.available;
+        window.capturedMemories = db.captured;
+        document.getElementById('jar-count').innerText = window.capturedMemories.length;
+        return true;
+    } catch (e) {
+        console.error("Error cargando Gist:", e);
+        return false;
+    }
+}
+
+function spawnUniqueFireflies() {
+    if (!fireflyModel) return;
+    while (fireflies.length < 9 && window.availablePool.length > 0) {
+        const randomIndex = Math.floor(Math.random() * window.availablePool.length);
+        const data = window.availablePool.splice(randomIndex, 1)[0];
+        
+        const x = (Math.random() - 0.5) * 20;
+        const y = Math.random() * 5 + 1;
+        const z = (Math.random() - 0.5) * 15;
+        
+        const f = new Firefly(fireflyModel, x, y, z, data);
+        fireflies.push(f);
+    }
+}
+
+// --- 3. INYECCIÓN DE UI Y ESTILOS ---
 function injectUI() {
     const styles = `
         .game-ui { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 15px; z-index: 100; pointer-events: auto; }
@@ -54,28 +90,13 @@ function injectUI() {
 
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 3000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(10px); padding: 20px; }
         .modal-content { background: #16213e; padding: 35px; border-radius: 30px; border: 1px solid ${LIME}; width: 100%; max-width: 450px; text-align: center; color: white; position: relative; }
-        .img-slot { width: 100%; height: 200px; border: 1px dashed rgba(204,255,0,0.4); border-radius: 20px; margin-bottom: 25px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-style: italic; }
+        .img-slot { width: 100%; height: 200px; border: 1px dashed rgba(204,255,0,0.4); border-radius: 20px; margin-bottom: 25px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-style: italic; overflow: hidden; }
+        .img-slot img { width: 100%; height: 100%; object-fit: cover; }
         .close-btn { background: none; border: 1px solid ${LIME}; color: ${LIME}; border-radius: 50px; padding: 10px 25px; cursor: pointer; margin-top: 25px; transition: 0.2s; }
         .close-btn:hover { background: ${LIME}; color: black; }
 
-        /* RED QUE SIGUE AL CURSOR */
-        .cursor-net {
-            position: fixed;
-            width: 80px;
-            height: 80px;
-            pointer-events: none;
-            z-index: 9999;
-            display: none;
-            /* Usamos margin para centrarla respecto al punto exacto del mouse */
-            margin-left: -40px;
-            margin-top: -40px;
-            transition: transform 0.05s ease-out;
-        }
-
-        /* FORZAR DESAPARICIÓN DEL CURSOR REAL */
-        .no-cursor, .no-cursor * {
-            cursor: none !important;
-        }
+        .cursor-net { position: fixed; width: 80px; height: 80px; pointer-events: none; z-index: 9999; display: none; margin-left: -40px; margin-top: -40px; transition: transform 0.05s ease-out; }
+        .no-cursor, .no-cursor * { cursor: none !important; }
     `;
     const styleSheet = document.createElement("style");
     styleSheet.innerText = styles;
@@ -92,7 +113,6 @@ function injectUI() {
     `;
     document.body.appendChild(container);
 
-    // Creamos la red visual
     const netVisual = document.createElement('img');
     netVisual.id = 'net-cursor';
     netVisual.className = 'cursor-net';
@@ -102,7 +122,7 @@ function injectUI() {
     const toast = document.createElement('div');
     toast.id = 'toast-msg';
     toast.className = 'toast';
-    toast.innerText = 'Recuerdo atrapado!✨, ve a tu inventario!! ❤️';
+    toast.innerText = 'Recuerdo atrapado! ✨ Enviando a la nube...';
     document.body.appendChild(toast);
 
     const inv = document.createElement('div');
@@ -121,22 +141,20 @@ function injectUI() {
     modal.className = 'modal';
     modal.innerHTML = `
         <div class="modal-content">
-            <div class="img-slot">Espacio para fotografía</div>
+            <div id="m-img-slot" class="img-slot"></div>
             <h2 id="m-title" style="color:${LIME}; margin: 0 0 10px 0;"></h2>
             <p id="m-date" style="font-size:12px; opacity:0.6; margin-bottom: 20px;"></p>
-            <p id="m-desc" style="font-size:14px; line-height: 1.6; opacity: 0.9;">Aquí podrás escribir la historia de este recuerdo muy pronto...</p>
+            <p id="m-desc" style="font-size:14px; line-height: 1.6; opacity: 0.9;"></p>
             <button class="close-btn" onclick="document.getElementById('mem-modal').style.display='none'">Cerrar Detalle</button>
         </div>
     `;
     document.body.appendChild(modal);
 
     const netBtn = document.getElementById('net-btn');
-
-    netBtn.onclick = (e) => {
+    netBtn.onclick = () => {
         isCaptureMode = !isCaptureMode;
         netBtn.classList.toggle('active', isCaptureMode);
         controls.enabled = !isCaptureMode;
-        
         if (isCaptureMode) {
             document.body.classList.add('no-cursor');
             netVisual.style.display = 'block';
@@ -150,8 +168,6 @@ function injectUI() {
         if (isCaptureMode) {
             netVisual.style.left = e.clientX + 'px';
             netVisual.style.top = e.clientY + 'px';
-            
-            // Efecto de inclinación según velocidad de movimiento
             const tilt = e.movementX * 0.6;
             netVisual.style.transform = `rotate(${tilt}deg)`;
         }
@@ -160,21 +176,22 @@ function injectUI() {
     document.getElementById('jar-btn').onclick = openInventory;
 }
 
-// --- 3. LÓGICA DE INVENTARIO ---
+// --- 4. LÓGICA DE INVENTARIO ---
 function openInventory() {
     const grid = document.getElementById('memories-grid');
     grid.innerHTML = '';
-    capturedMemories.forEach((mem, index) => {
+    window.capturedMemories.forEach((mem) => {
         const card = document.createElement('div');
         card.className = 'memory-card';
         card.innerHTML = `
             <img src="./assets/images/jar-item.png" style="width:60px; margin-bottom:15px;">
-            <p style="font-weight:bold; margin:0;">Recuerdo #${index + 1}</p>
-            <p style="font-size:11px; opacity:0.6; margin-top:5px;">${mem.date}</p>
+            <p style="font-weight:bold; margin:0;">${mem.title}</p>
+            <p style="font-size:11px; opacity:0.6; margin-top:5px;">Recuerdo #${mem.id}</p>
         `;
         card.onclick = () => {
-            document.getElementById('m-title').innerText = `Recuerdo Capturado #${index + 1}`;
-            document.getElementById('m-date').innerText = `Guardado el ${mem.date} a las ${mem.time}`;
+            document.getElementById('m-img-slot').innerHTML = mem.img ? `<img src="${mem.img}">` : "Sin imagen";
+            document.getElementById('m-title').innerText = mem.title;
+            document.getElementById('m-desc').innerText = mem.desc;
             document.getElementById('mem-modal').style.display = 'flex';
         };
         grid.appendChild(card);
@@ -182,15 +199,17 @@ function openInventory() {
     document.getElementById('inv-overlay').classList.add('active');
 }
 
-function showToast() {
+function showToast(msg) {
     const t = document.getElementById('toast-msg');
+    if(msg) t.innerText = msg;
     t.style.opacity = '1';
     setTimeout(() => { t.style.opacity = '0'; }, 3000);
 }
 
-// --- 4. CLASE FIREFLY ---
+// --- 5. CLASE FIREFLY ---
 class Firefly {
-    constructor(model, x, y, z) {
+    constructor(model, x, y, z, data) {
+        this.data = data;
         this.group = new THREE.Group();
         this.mesh = model.clone();
         this.mesh.scale.set(0.15, 0.15, 0.15);
@@ -206,13 +225,11 @@ class Firefly {
             if (child.isMesh) {
                 child.userData = { isFirefly: true, parentRef: this };
                 const isLightSource = child.name.toLowerCase().includes("luz") || child.material.name.includes("004");
-
                 if (isLightSource) {
-                    child.material = new THREE.MeshBasicMaterial({ color: 0xccff00 });
-
+                    child.material = new THREE.MeshBasicMaterial({ color: this.data.color || LIME });
                     const spriteMat = new THREE.SpriteMaterial({ 
                         map: glowTexture, 
-                        color: 0xccff00, 
+                        color: this.data.color || LIME, 
                         transparent: true, 
                         blending: THREE.AdditiveBlending,
                         depthWrite: false
@@ -246,23 +263,38 @@ class Firefly {
         }
     }
 
-    capture() {
+    async capture() {
         scene.remove(this.group);
         const index = fireflies.indexOf(this);
         if (index > -1) fireflies.splice(index, 1);
-        const now = new Date();
-        capturedMemories.push({
-            date: now.toLocaleDateString(),
-            time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        
+        // Notificar a GitHub Actions
+        fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/dispatches`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `token ${DISPATCH_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json'
+            },
+            body: JSON.stringify({
+                event_type: 'firefly_caught',
+                client_payload: { id: this.data.id }
+            })
         });
-        caughtCount++;
-        document.getElementById('jar-count').innerText = caughtCount;
-        showToast();
+
+        window.capturedMemories.push(this.data);
+        document.getElementById('jar-count').innerText = window.capturedMemories.length;
+        showToast(`¡Recuerdo "${this.data.title}" capturado! ✨`);
+        
+        spawnUniqueFireflies();
     }
 }
 
-// --- 5. MOTOR DEL JARDÍN ---
-export function initGarden() {
+// --- 6. MOTOR DEL JARDÍN ---
+export async function initGarden() {
+    // Primero cargamos los datos
+    const ready = await loadUniquePool();
+    if (!ready) return;
+
     scene = new THREE.Scene();
     injectUI();
 
@@ -285,9 +317,8 @@ export function initGarden() {
 
     loader.load('./assets/models/test3.glb', (gltf) => {
         fireflyModel = gltf.scene;
-        for(let i = 0; i < 15; i++) {
-            fireflies.push(new Firefly(fireflyModel, (Math.random()-0.5)*20, Math.random()*5+1, (Math.random()-0.5)*15));
-        }
+        // Spawneamos las 9 iniciales
+        spawnUniqueFireflies();
     });
 
     window.addEventListener('click', (e) => {
