@@ -96,7 +96,7 @@ function animate() {
         f1.position.y += f1.userData.velY;
         f1.position.z += f1.userData.velZ;
 
-        // 2. EVITAR OBSTRUCCIONES (Lógica de colisiones anterior)
+        // 2. EVITAR OBSTRUCCIONES (Colisiones)
         for (let j = i + 1; j < fireflies.length; j++) {
             const f2 = fireflies[j];
             const dist = f1.position.distanceTo(f2.position);
@@ -117,21 +117,19 @@ function animate() {
         if (Math.abs(f1.position.z) > limit) f1.userData.velZ *= -1;
 
         // 4. --- ORIENTACIÓN AL FRENTE (lookAt) ---
-        // Creamos un punto temporal en el espacio que represente la dirección de avance
-        // Es la posición actual + el vector de velocidad
+        // 4.1. Definimos el punto de destino
         const targetPoint = new THREE.Vector3(
             f1.position.x + f1.userData.velX,
             f1.position.y + f1.userData.velY,
             f1.position.z + f1.userData.velZ
         );
         
-        // Obligamos al modelo a mirar a ese punto
+        // 4.2. Obligamos al modelo a mirar al punto (esto alinea el trasero con el movimiento)
         f1.lookAt(targetPoint);
         
-        // Si tu modelo 'test3.glb' aparece de espaldas o cabeza abajo por defecto,
-        // quizás tengas que corregir su rotación local. Prueba a añadir esto si se ve raro:
-        // f1.rotateY(Math.PI); // Gira 180 grados si miren hacia atrás
-        // f1.rotateX(Math.PI / 2); // Gira si aparecen de cabeza
+        // 4.3. --- LA CORRECCIÓN ---
+        // Rotamos el modelo localmente 180 grados (Math.PI) sobre el eje Y para que la cara mire al frente.
+        f1.rotateY(Math.PI); 
 
         // 5. PARPADEO
         f1.traverse((child) => {
