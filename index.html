@@ -9,38 +9,52 @@
     
     <style>
         body { 
-            background-color: #050505; 
+            background-color: #020205; 
             margin: 0; 
             overflow: hidden; 
             color: white;
-            font-family: sans-serif;
+            font-family: 'Arial', sans-serif;
         }
 
         #app-canvas {
-			background-color: #050505; /* Color de carga mientras aparece el .webp */
-			filter: brightness(0.8) contrast(1.1); /* Ajuste visual opcional */
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
             z-index: 0;
+            filter: brightness(0.9) contrast(1.1);
         }
 
+        /* Capa de interfaz superior (Logo y Footer) */
         #gui-layer {
             position: relative;
             z-index: 10;
             pointer-events: none;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
         }
 
         .interactive {
             pointer-events: auto;
         }
 
-        /* Estilo para el textarea para que no tenga bordes feos */
-        textarea {
-            resize: none;
-            outline: none;
+        header h1 {
+            letter-spacing: 0.2em;
+            font-size: 0.75rem;
+            opacity: 0.5;
+            text-transform: uppercase;
+        }
+
+        footer {
+            letter-spacing: 0.3em;
+            font-size: 0.6rem;
+            opacity: 0.2;
+            text-transform: uppercase;
+            text-align: center;
         }
     </style>
 </head>
@@ -48,41 +62,20 @@
 
     <div id="app-canvas"></div>
 
-    <div id="gui-layer" class="min-h-screen flex flex-col justify-between p-8">
-        
+    <div id="gui-layer">
         <header class="flex justify-between items-center">
             <div class="interactive">
-                <h1 class="text-xl tracking-tighter font-bold opacity-80 uppercase">Garden Flower</h1>
+                <h1>Garden Flower</h1>
             </div>
-            <button id="btn-inventory" class="interactive bg-white/5 border border-white/10 px-5 py-2 rounded-full backdrop-blur-md hover:bg-white/10 transition">
-                Inventario
-            </button>
-        </header>
+            </header>
 
-        <main class="flex flex-col items-center">
-            <div id="memory-box" class="interactive bg-black/40 border border-white/5 p-6 rounded-3xl backdrop-blur-xl w-full max-w-md transform translate-y-10 opacity-0 transition-all duration-1000">
-                <p class="text-center text-sm text-gray-400 mb-4 italic">Escribe un recuerdo para hoy...</p>
-                <textarea id="text-input" class="w-full bg-transparent border-none text-center focus:ring-0 text-lg" placeholder="..." rows="3"></textarea>
-                <button id="btn-save" class="w-full mt-4 bg-indigo-500/20 border border-indigo-500/50 py-2 rounded-xl hover:bg-indigo-500/40 transition">
-                    Soltar Luciérnaga
-                </button>
-            </div>
-        </main>
+        <main>
+            </main>
 
-        <footer class="text-center opacity-30 text-xs tracking-widest uppercase">
+        <footer>
             Jardín de Recuerdos • 2026
         </footer>
     </div>
-
-    <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
-        <defs>
-            <filter id="goo">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
-                <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo" />
-                <feBlend in="SourceGraphic" in2="goo" />
-            </filter>
-        </defs>
-    </svg>
 
     <script type="importmap">
     {
@@ -91,34 +84,21 @@
             "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
         }
     }
-</script>
+    </script>
 
-<script type="module">
-    // El signo debe ser '?' no '='
-	import { initGarden, addMemoryFirefly } from './js/garden.js?v?3';
+    <script type="module">
+        // Importamos solo initGarden. 
+        // La lógica de los botones y el inventario ahora vive dentro de garden.js
+        import { initGarden } from './js/garden.js?v=4';
 
-    // Ejecutamos todo cuando la ventana esté lista
-    window.onload = () => {
-        // 1. Inicializar el 3D
-        initGarden();
-
-        // 2. Animación de la interfaz
-        const box = document.getElementById('memory-box');
-        box.style.opacity = '1';
-        box.style.transform = 'translateY(0)';
-    };
-
-    // Conexión del botón
-    const btnSave = document.getElementById('btn-save');
-    const textInput = document.getElementById('text-input');
-
-    btnSave.addEventListener('click', () => {
-        if(textInput.value.trim() !== "") {
-            addMemoryFirefly(); 
-            textInput.value = "";
-            console.log("¡Luciérnaga soltada!");
-        }
-    });
-</script>
+        window.onload = () => {
+            try {
+                initGarden();
+                console.log("Jardín inicializado correctamente.");
+            } catch (error) {
+                console.error("Error al cargar el jardín:", error);
+            }
+        };
+    </script>
 </body>
 </html>
