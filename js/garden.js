@@ -81,27 +81,38 @@ export function initGarden() {
 }
 
 function spawnFirefly(x, y, z) {
-    const geometry = new THREE.SphereGeometry(0.06, 8, 8);
-    // Usamos MeshStandardMaterial y emision para que la luciérnaga "brille" de verdad
-    const material = new THREE.MeshStandardMaterial({ 
-        color: 0xffff00,
-        emissive: 0xfdfbd3,
-        emissiveIntensity: 2,
-        transparent: true,
-        opacity: 0.8
-    });
+    const loader = new GLTFLoader();
+    
+    loader.load('./assets/models/test3.glb', (gltf) => {
+        const firefly = gltf.scene;
+        
+        // 1. Posición inicial
+        firefly.position.set(x, y, z);
+        
+        // 2. Escala (Ajusta este número si no se ve, prueba con 0.1 o 2.0)
+        firefly.scale.set(0.5, 0.5, 0.5); 
 
-    const firefly = new THREE.Mesh(geometry, material);
-    firefly.position.set(x, y, z);
-    
-    firefly.userData = {
-        angle: Math.random() * Math.PI * 2,
-        speed: 0.005 + Math.random() * 0.01,
-        offset: Math.random() * 1000
-    };
-    
-    scene.add(firefly);
-    fireflies.push(firefly);
+        // 3. Datos para la animación
+        firefly.userData = {
+            angle: Math.random() * Math.PI * 2,
+            speed: 0.005 + Math.random() * 0.01,
+            offset: Math.random() * 1000
+        };
+
+        // 4. Hacer que el modelo brille (Si el modelo tiene materiales)
+        firefly.traverse((child) => {
+            if (child.isMesh) {
+                child.material.emissive = new THREE.Color(0xfdfbd3);
+                child.material.emissiveIntensity = 2;
+            }
+        });
+
+        scene.add(firefly);
+        fireflies.push(firefly);
+        
+    }, undefined, (error) => {
+        console.error("Error cargando la luciérnaga test3.glb:", error);
+    });
 }
 
 export function addMemoryFirefly() {
