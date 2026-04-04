@@ -16,17 +16,26 @@ class Firefly {
         this.acceleration = new THREE.Vector3();
         this.maxSpeed = 0.05;
         this.maxForce = 0.005;
-        this.offset = Math.random() * 100;
+        this.offset = Math.random() * Math.PI * 2; // Offset para que no todas palpiten igual
         
         this.mesh.scale.set(0.12, 0.12, 0.12);
         this.mesh.position.copy(this.position);
 
-        // Aplicar brillo inicial
+        // --- BUSCAMOS LA PARTE "LUZ" ESPECÍFICAMENTE ---
         this.mesh.traverse((child) => {
             if (child.isMesh) {
-                child.material = child.material.clone(); // Material único por bicho
-                child.material.emissive = new THREE.Color(0xffff00);
-                child.material.emissiveIntensity = 5;
+                // Clonamos el material para que cada luciérnaga sea independiente
+                child.material = child.material.clone();
+                
+                // Si es la parte de la luz, le damos el color irradiante
+                if (child.name.includes("Luz")) {
+                    child.material.emissive = new THREE.Color(0xccff00); // Verde-Amarillo neón
+                    child.material.emissiveIntensity = 2;
+                } else {
+                    // El resto del cuerpo no brilla y es más oscuro
+                    child.material.emissiveIntensity = 0;
+                    child.material.color.set(0x111111); // Un gris muy oscuro casi negro
+                }
             }
         });
 
@@ -34,53 +43,44 @@ class Firefly {
     }
 
     update(time) {
-        // 1. Wander: Cambia de dirección suavemente (Solo el 5% de los frames)
+        // 1. Lógica de movimiento (la que ya tenías)
         if (Math.random() < 0.05) {
-            let steer = new THREE.Vector3(
-                (Math.random() - 0.5) * 0.03,
-                (Math.random() - 0.5) * 0.03,
-                (Math.random() - 0.5) * 0.03
-            );
+            let steer = new THREE.Vector3((Math.random()-0.5)*0.03, (Math.random()-0.5)*0.03, (Math.random()-0.5)*0.03);
             this.acceleration.add(steer);
         }
-
         this.velocity.add(this.acceleration);
         this.velocity.clampLength(0, this.maxSpeed);
         this.position.add(this.velocity);
         this.acceleration.multiplyScalar(0);
-
-        // 2. Posición
         this.mesh.position.copy(this.position);
         
-        // 3. --- ROTACIÓN SUAVE (Adiós a los trompicones) ---
-        if (this.velocity.lengthSq() > 0.001) {
-            // Creamos una matriz temporal para calcular hacia dónde debería mirar
+        // 2. Rotación suave (Slerp)
+        if (this.velocity.lengthSq() > 0.0001) {
             const tempMatrix = new THREE.Matrix4();
-            const targetPos = this.position.clone().add(this.velocity);
-            
-            tempMatrix.lookAt(targetPos, this.position, new THREE.Vector3(0, 1, 0));
-            
+            tempMatrix.lookAt(this.position.clone().add(this.velocity), this.position, new THREE.Vector3(0, 1, 0));
             const targetQuaternion = new THREE.Quaternion().setFromRotationMatrix(tempMatrix);
-            
-            // Interpolar: 0.1 es la suavidad. 
-            // Si quieres que gire más lento y natural, baja a 0.05.
             this.mesh.quaternion.slerp(targetQuaternion, 0.1);
-            
-            // Aplicamos la corrección de la cabeza (si es necesaria)
             this.mesh.rotateY(Math.PI); 
         }
 
-        // 4. Parpadeo y Límites (igual que antes)
+        // 3. --- EFECTO CORAZÓN PALPITANTE ---
+        // Math.sin crea la curva, el 'offset' hace que no palpiten a la vez
+        const pulse = Math.sin(time * 2 + this.offset); 
+        // Normalizamos el valor para que vaya de 1 a 5 (siempre brillando)
+        const intensity = 2 + (pulse + 1) * 2; 
+
         this.mesh.traverse((child) => {
-            if (child.isMesh) {
-                child.material.emissiveIntensity = 2 + Math.sin(time * 4 + this.offset) * 4;
+            if (child.isMesh && child.name.includes("Luz")) {
+                child.material.emissiveIntensity = intensity;
             }
         });
 
+        // 4. Límites
         const limit = 6;
         if (Math.abs(this.position.x) > limit) this.velocity.x *= -1;
         if (this.position.y > 6 || this.position.y < 0.5) this.velocity.y *= -1;
         if (Math.abs(this.position.z) > limit) this.velocity.z *= -1;
+    }
 }
 
 // --- 2. MOTOR DEL JARDÍN ---
@@ -99,6 +99,8 @@ export function initGarden() {
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ReinhardToneMapping;
+    renderer.toneMappingExposure = 1.5; // Sube esto si las ves muy oscuras
     document.getElementById('app-canvas').appendChild(renderer.domElement);
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 2); 
