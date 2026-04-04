@@ -110,39 +110,60 @@ class Firefly {
 export function initGarden() {
     scene = new THREE.Scene();
 
-    // 1. El Fondo
+    // 1. FONDO (Asegúrate de que la ruta sea correcta)
     const textureLoader = new THREE.TextureLoader();
-    textureLoader.load('./assets/textures/jardin-fondo.webp', (texture) => {
-        scene.background = texture;
-    });
+    textureLoader.load('./assets/textures/jardin-fondo.webp', 
+        (texture) => {
+            scene.background = texture;
+            console.log("Imagen de fondo cargada con éxito");
+        },
+        undefined,
+        (err) => {
+            console.error("Error cargando el fondo, revisa la ruta:", err);
+            // Si falla la imagen, ponemos un color azul oscuro para no ver negro
+            scene.background = new THREE.Color(0x020205); 
+        }
+    );
 
-    // 2. La Niebla (Opcional, para dar profundidad)
-    scene.fog = new THREE.FogExp2(0x050505, 0.03);
+    // 2. NIEBLA (¡CUIDADO AQUÍ!) 
+    // Si la ves negra, comenta esta línea para descartar que sea el problema
+    // scene.fog = new THREE.FogExp2(0x050505, 0.03); 
 
-    // 3. LA LUZ AMBIENTAL (Aquí es el mejor sitio)
-    // El 1.0 es la intensidad. Si las ves muy oscuras, súbelo a 1.5
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0); 
+    // 3. CÁMARA (Ajusta la posición para estar cerca del centro)
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 2, 10); 
+
+    // 4. LUCES
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2); 
     scene.add(ambientLight);
 
-    // 4. Configuración de Cámara y Render
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    // 5. RENDERER
     renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    
+    // Si esto está muy bajo (ej: 0.1), se verá todo negro
+    renderer.toneMapping = THREE.ReinhardToneMapping;
+    renderer.toneMappingExposure = 1.5; 
 
-    // CARGA ÚNICA DEL MODELO
+    document.getElementById('app-canvas').appendChild(renderer.domElement);
+
+    // 6. CONTROLES Y MODELO
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
     loader.load('./assets/models/test3.glb', (gltf) => {
         fireflyModel = gltf.scene;
-        // Spawneamos 6 iniciales en posiciones aleatorias
         for(let i = 0; i < 6; i++) {
             fireflies.push(new Firefly(
                 fireflyModel, 
-                (Math.random() - 0.5) * 8, 
-                Math.random() * 4, 
-                (Math.random() - 0.5) * 8
+                (Math.random() - 0.5) * 5, 
+                Math.random() * 3, 
+                (Math.random() - 0.5) * 5
             ));
         }
     });
 
-    window.addEventListener('resize', onWindowResize);
     animate();
 }
 
