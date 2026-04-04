@@ -5,178 +5,163 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 let scene, camera, renderer, controls;
 const fireflies = [];
 const loader = new GLTFLoader();
-let fireflyModel = null; 
 
-// --- 1. CLASE FIREFLY (Vuelo Suave y Contraste Alto) ---
+// --- 1. FUNCIÓN PARA EL TEXTURE GLOW (IDÉNTICA A TU VUE) ---
+const createGlowTexture = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 64, 64);
+    return new THREE.CanvasTexture(canvas);
+};
+
+// --- 2. CLASE FIREFLY (TRADUCCIÓN LITERAL) ---
 class Firefly {
-    constructor(model, x, y, z) {
-        this.mesh = model.clone();
-        this.position = new THREE.Vector3(x, y, z);
-        
-        // Velocidad inicial suave para evitar el caos
-        this.velocity = new THREE.Vector3(
-            (Math.random() - 0.5) * 0.03, 
-            (Math.random() - 0.5) * 0.03, 
-            (Math.random() - 0.5) * 0.03
-        );
-        this.acceleration = new THREE.Vector3();
-        this.maxSpeed = 0.04; 
-        this.maxForce = 0.005; // Fuerza de giro suave
-        this.offset = Math.random() * Math.PI * 2;
-        
-        this.mesh.scale.set(0.12, 0.12, 0.12);
-        this.mesh.position.copy(this.position);
+    constructor(model, glowTexture) {
+        this.obj = model.clone();
+        this.glows = [];
+        this.glowSprite = null;
+        this.phase = Math.random() * Math.PI * 2;
+        this.isCaptured = false;
 
-        // --- CALIBRACIÓN DE COLORES (Contraste Máximo) ---
-        this.mesh.traverse((child) => {
+        // Velocidad y posición inicial (tu lógica)
+        this.position = new THREE.Vector3(
+            (Math.random() - 0.5) * 15,
+            Math.random() * 4 + 1,
+            (Math.random() - 0.5) * 12
+        );
+        this.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.05,
+            (Math.random() - 0.5) * 0.05,
+            (Math.random() - 0.5) * 0.05
+        );
+
+        this.obj.position.copy(this.position);
+        this.obj.scale.set(0.12, 0.12, 0.12);
+
+        // --- LÓGICA DE DETECCIÓN DE LUZ Y SPRITES (IDÉNTICA) ---
+        this.obj.traverse((child) => {
             if (child.isMesh) {
-                child.material = child.material.clone(); // Material único por bicho
+                const c = child.material.color;
+                // Tu condición: Nombre 'luz' o color mayoritariamente verde
+                const esLaLuz = child.name.toLowerCase().includes('luz') || (c.g > 0.5 && c.b < 0.4);
                 
-                if (child.name.includes("Luz")) {
-                    // LA LUZ: Verde-Lima Neón muy saturado
-                    child.material.color.set(0xccff00); 
-                    child.material.emissive.set(0xccff00);
-                    child.material.emissiveIntensity = 20; // Brillo base muy alto
+                if (esLaLuz) {
+                    const colorOriginal = c.clone();
+                    // Material negro base para el parpadeo
+                    const blinkingMat = new THREE.MeshBasicMaterial({ 
+                        color: new THREE.Color(0x000000), 
+                        side: THREE.DoubleSide 
+                    });
+                    child.material = blinkingMat;
+
+                    // El Sprite de brillo (Glow)
+                    const spriteMat = new THREE.SpriteMaterial({ 
+                        map: glowTexture, 
+                        color: colorOriginal, 
+                        transparent: true, 
+                        blending: THREE.AdditiveBlending, 
+                        depthWrite: false 
+                    });
+                    const glowSprite = new THREE.Sprite(spriteMat);
+                    glowSprite.scale.set(6, 6, 1);
+                    child.add(glowSprite);
+
+                    this.glowSprite = glowSprite;
+                    this.glows.push({ material: blinkingMat, targetColor: colorOriginal });
                 } else {
-                    // EL CUERPO: Negro absoluto para que la luz destaque
-                    child.material.color.set(0x000000); 
-                    child.material.emissiveIntensity = 0;
-                    child.material.roughness = 1; // Mate, no brilla con la luz ambiental
+                    child.material = child.material.clone();
                 }
             }
         });
 
-        scene.add(this.mesh);
+        scene.add(this.obj);
     }
 
     update(time) {
-        // 1. MOVIMIENTO (Wander suave)
-        // Solo cambiamos de dirección el 2% de las veces para que vuelen más "recto"
-        if (Math.random() < 0.02) {
-            let steer = new THREE.Vector3(
-                (Math.random() - 0.5) * 0.02,
-                (Math.random() - 0.5) * 0.02,
-                (Math.random() - 0.5) * 0.02
-            );
-            this.acceleration.add(steer);
-        }
+        if (this.isCaptured) return; // Si quieres implementar captura luego
 
-        this.velocity.add(this.acceleration);
-        this.velocity.clampLength(0.01, this.maxSpeed); // Evitamos que se paren
-        this.position.add(this.velocity);
-        this.acceleration.multiplyScalar(0);
-        this.mesh.position.copy(this.position);
+        // --- MOVIMIENTO (TU LÓGICA EXACTA) ---
+        this.obj.position.add(this.velocity);
+        this.velocity.x += Math.sin(time * 0.4 + this.phase) * 0.002;
+        this.velocity.y += Math.cos(time * 0.5 + this.phase) * 0.002;
+        this.velocity.z += Math.sin(time * 0.3 + this.phase) * 0.002;
+        this.velocity.clampLength(0, 0.09);
+
+        // --- LÍMITES (TUS VALORES) ---
+        const maxX = 10, minX = -10, maxY = 6, minY = 1, maxZ = 5, minZ = -8;
+        if (this.obj.position.x > maxX) this.velocity.x -= 0.006;
+        if (this.obj.position.x < minX) this.velocity.x += 0.006;
+        if (this.obj.position.y > maxY) this.velocity.y -= 0.006;
+        if (this.obj.position.y < minY) this.velocity.y += 0.006;
+        if (this.obj.position.z > maxZ) this.velocity.z -= 0.006;
+        if (this.obj.position.z < minZ) this.velocity.z += 0.006;
+
+        // --- ROTACIÓN (TU LÓGICA ATAN2) ---
+        const direction = this.velocity.clone().normalize();
+        const targetRotationY = Math.atan2(direction.x, direction.z) + Math.PI;
+        let diff = targetRotationY - this.obj.rotation.y;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        this.obj.rotation.y += diff * 0.05;
+
+        // --- ANIMACIÓN DE LUZ (FLASH AGRESIVO) ---
+        const intensidad = Math.pow((Math.sin(time * 3 + this.phase) + 1) / 2, 5);
         
-        // 2. --- ROTACIÓN SUAVE (Elimina el nerviosismo de cabeza) ---
-        if (this.velocity.lengthSq() > 0.001) {
-            // Creamos una matriz temporal para calcular hacia dónde debería mirar
-            const tempMatrix = new THREE.Matrix4();
-            const targetPos = this.position.clone().add(this.velocity);
-            
-            //lookAt(target, eye, up)
-            tempMatrix.lookAt(targetPos, this.position, new THREE.Vector3(0, 1, 0));
-            
-            const targetQuaternion = new THREE.Quaternion().setFromRotationMatrix(tempMatrix);
-            
-            // Interpolar: 0.05 es la suavidad del giro. 
-            // Si quieres que gire más lento y natural, baja a 0.03.
-            this.mesh.quaternion.slerp(targetQuaternion, 0.05);
-            
-            // Corrección de 180º para que la cabeza vaya delante
-            this.mesh.rotateY(Math.PI); 
+        if (this.glows) {
+            this.glows.forEach(g => {
+                g.material.color.lerpColors(new THREE.Color(0x000000), g.targetColor, intensidad);
+            });
         }
-
-        // 3. --- EFECTO LATIDO CORAZÓN (Intensidad Bestial) ---
-        const pulse = Math.sin(time * 2.5 + this.offset); 
-        // Normalizamos el valor de 0 a 1 y escalamos de 10 a 30 de brillo
-        const intensity = 10 + (pulse + 1) * 10; 
-
-        this.mesh.traverse((child) => {
-            if (child.isMesh && child.name.includes("Luz")) {
-                child.material.emissiveIntensity = intensity;
-            }
-        });
-
-        // 4. LÍMITES (Rebote suave)
-        const limit = 7;
-        if (Math.abs(this.position.x) > limit) this.velocity.x *= -0.8;
-        if (this.position.y > 6 || this.position.y < 0.5) this.velocity.y *= -0.8;
-        if (Math.abs(this.position.z) > limit) this.velocity.z *= -0.8;
+        
+        if (this.glowSprite) {
+            const glowOpacidad = intensidad > 0.01 ? Math.min(1, intensidad * 1.5) : 0;
+            this.glowSprite.material.opacity = glowOpacidad;
+            const escalaFinal = 0.5 + (intensidad * 9);
+            this.glowSprite.scale.set(escalaFinal, escalaFinal, 1);
+        }
     }
 }
 
-// --- 2. MOTOR DEL JARDÍN (Init y Animate) ---
+// --- 3. INICIALIZACIÓN DEL MOTOR ---
 
 export function initGarden() {
     scene = new THREE.Scene();
     
-    // Fondo
-    const textureLoader = new THREE.TextureLoader();
-    textureLoader.load('./assets/textures/jardin-fondo.webp', (texture) => {
-        scene.background = texture;
-    });
+    // Cámara posicionada como en tu Laravel
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 5, 25);
 
-    // Niebla sutil
-    scene.fog = new THREE.FogExp2(0x050505, 0.03);
-
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    
-    // Configuración de ToneMapping para el brillo (Bloom natural)
-    renderer.toneMapping = THREE.ReinhardToneMapping;
-    renderer.toneMappingExposure = 1.2; 
-    
     document.getElementById('app-canvas').appendChild(renderer.domElement);
 
-    // Luz ambiental muy tenue para que el cuerpo negro no se aclare
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3); // Sube a 0.3 o 0.5 si están DEMASIADO oscuras
-    scene.add(ambientLight);
+    // Luz ambiental fuerte para ver el cuerpo
+    scene.add(new THREE.AmbientLight(0xffffff, 1.8));
 
-    camera.position.set(0, 2, 8);
-    controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
+    const proceduralGlow = createGlowTexture();
 
-    // CARGA ÚNICA DEL MODELO
+    // Carga de modelo
     loader.load('./assets/models/test3.glb', (gltf) => {
-        fireflyModel = gltf.scene;
-        // Spawneamos 6 iniciales en posiciones aleatorias
-        for(let i = 0; i < 6; i++) {
-            fireflies.push(new Firefly(
-                fireflyModel, 
-                (Math.random() - 0.5) * 8, 
-                Math.random() * 4, 
-                (Math.random() - 0.5) * 8
-            ));
+        const masterModel = gltf.scene;
+        for (let i = 0; i < 12; i++) {
+            fireflies.push(new Firefly(masterModel, proceduralGlow));
         }
     });
 
-    window.addEventListener('resize', onWindowResize);
     animate();
-}
-
-export function addMemoryFirefly() {
-    if (fireflyModel) {
-        // Nace una en el centro al pulsar el botón
-        fireflies.push(new Firefly(fireflyModel, 0, 1, 0));
-    }
-}
-
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
 function animate() {
     requestAnimationFrame(animate);
-    const time = Date.now() * 0.001;
+    const time = performance.now() * 0.001;
 
-    // Actualizamos todas las luciérnagas usando su clase
     fireflies.forEach(f => f.update(time));
 
-    if (controls) controls.update();
     renderer.render(scene, camera);
 }
