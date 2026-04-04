@@ -124,23 +124,53 @@ class Firefly {
         this.mesh = model.clone();
         this.mesh.scale.set(0.15, 0.15, 0.15);
         this.group.add(this.mesh);
+        
         this.group.position.set(x, y, z);
         this.phase = Math.random() * Math.PI * 2;
         this.velocity = new THREE.Vector3((Math.random()-0.5)*0.05, (Math.random()-0.5)*0.05, (Math.random()-0.5)*0.05);
         this.group.userData = { isFirefly: true, parentRef: this };
 
+        // 1. Crear el material del aura (Glow)
+        const glowMaterial = new THREE.SpriteMaterial({
+            map: this.createGlowTexture(),
+            color: 0xccff00,
+            transparent: true,
+            blending: THREE.AdditiveBlending, // Esto hace que el color "sume" luz
+            depthWrite: false
+        });
+        const sprite = new THREE.Sprite(glowMaterial);
+        sprite.scale.set(1.2, 1.2, 1); // Tamaño del resplandor
+        this.group.add(sprite);
+
+        // 2. Colorear el cuerpo
         this.mesh.traverse(child => {
             if(child.isMesh) {
                 child.userData = { isFirefly: true, parentRef: this };
-                // Forzamos el color verde lima neón
                 if(child.name.toLowerCase().includes("luz") || (child.material && child.material.name.includes("004"))) {
                     child.material = new THREE.MeshBasicMaterial({ color: 0xccff00 });
                 } else {
-                    child.material = new THREE.MeshStandardMaterial({ color: 0x050505 });
+                    child.material = new THREE.MeshStandardMaterial({ color: 0x020202 });
                 }
             }
         });
+        
         scene.add(this.group);
+    }
+
+    // Genera un degradado circular para el efecto de luz
+    createGlowTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64; canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        grad.addColorStop(0, 'rgba(255, 255, 255, 1)');    // Centro blanco puro
+        grad.addColorStop(0.2, 'rgba(204, 255, 0, 0.8)'); // Verde Lima intenso
+        grad.addColorStop(0.5, 'rgba(204, 255, 0, 0.2)'); // Desvanecimiento
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');          // Transparente total
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 64, 64);
+        const tex = new THREE.CanvasTexture(canvas);
+        return tex;
     }
 
     update(time) {
@@ -155,6 +185,13 @@ class Firefly {
 
         const direction = this.velocity.clone().normalize();
         this.group.rotation.y = Math.atan2(direction.x, direction.z) + Math.PI;
+        
+        // Oscilación de brillo (latido de luz)
+        const glow = this.group.children.find(c => c instanceof THREE.Sprite);
+        if(glow) {
+            glow.scale.setScalar(1.0 + Math.sin(time * 4 + this.phase) * 0.3);
+        }
+
         this.group.position.y += Math.sin(time * 2 + this.phase) * 0.005;
     }
 
