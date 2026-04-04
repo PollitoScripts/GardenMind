@@ -76,7 +76,7 @@ function injectUI() {
     const toast = document.createElement('div');
     toast.id = 'toast-msg';
     toast.className = 'toast';
-    toast.innerText = 'Recuerdo atrapado, ve a tu inventario...';
+    toast.innerText = 'Recuerdo atrapado!✨, ve a tu inventario!! ❤️';
     document.body.appendChild(toast);
 
     const inv = document.createElement('div');
@@ -84,8 +84,8 @@ function injectUI() {
     inv.className = 'inventory-overlay';
     inv.innerHTML = `
         <button class="close-btn" style="margin: 0 0 40px 0;" onclick="document.getElementById('inv-overlay').classList.remove('active')">← Volver al Jardín</button>
-        <h1 class="inv-title">Mis Luces Guardadas</h1>
-        <p style="opacity: 0.7;">Momentos mágicos capturados</p>
+        <h1 class="inv-title">❤️Mis Recuerdos Capturados❤️</h1>
+        <p style="opacity: 0.7;">✨Momentos Mágicos Guardados✨</p>
         <div id="memories-grid" class="memories-grid"></div>
     `;
     document.body.appendChild(inv);
