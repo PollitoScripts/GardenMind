@@ -1,0 +1,29 @@
+name: Capture Memory
+on:
+  repository_dispatch:
+    types: [firefly_caught]
+
+jobs:
+  update_gist:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Gist Data
+        run: |
+          # 1. Descargar el JSON actual del Gist
+          curl -s -H "Authorization: token ${{ secrets.GIST_TOKEN }}" \
+               https://api.github.com/gists/${{ secrets.GIST_ID }} > gist.json
+          
+          # 2. Extraer el contenido de memories.json
+          cat gist.json | jq -r '.files["memories.json"].content' > db.json
+          
+          # 3. Lógica de movimiento (Usando JQ para manipular el JSON)
+          # Mueve el ID enviado desde el JS de 'available' a 'captured'
+          ID_TO_CAPTURE="${{ github.event.client_payload.id }}"
+          jq --arg id "$ID_TO_CAPTURE" '.captured += [.available[] | select(.id == ($id|tonumber))] | .available |= map(select(.id != ($id|tonumber)))' db.json > new_db.json
+          
+          # 4. Subir el JSON actualizado al Gist
+          CONTENT=$(cat new_db.json | jq -Rs .)
+          curl -X PATCH -H "Authorization: token ${{ secrets.GIST_TOKEN }}" \
+               -H "Content-Type: application/json" \
+               -d "{\"files\":{\"memories.json\":{\"content\":$CONTENT}}}" \
+               https://api.github.com/gists/${{ secrets.GIST_ID }}
