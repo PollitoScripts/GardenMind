@@ -12,18 +12,26 @@ let isCaptureMode = false;
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-// --- 1. INTERFAZ ---
+// --- COLOR CLAVE: VERDE LIMA (#ccff00) ---
+const LIME_COLOR = 0xccff00; // Para Three.js hexadecimal
+const LIME_COLOR_CSS = '#ccff00'; // Para CSS
+
+// --- 1. ESTILOS E INTERFAZ ---
 function injectUI() {
     const styles = `
+        /* Interfaz del Jardín */
         .game-ui { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 15px; z-index: 100; pointer-events: auto; }
-        .ui-btn { background: rgba(0,0,0,0.6); border: 1.5px solid #ffd700; border-radius: 12px; padding: 10px; cursor: pointer; transition: 0.3s; backdrop-filter: blur(5px); }
+        .ui-btn { background: rgba(0,0,0,0.6); border: 1.5px solid ${LIME_COLOR_CSS}; border-radius: 12px; padding: 10px; cursor: pointer; transition: 0.3s; backdrop-filter: blur(5px); }
         .ui-btn img { width: 50px; height: 50px; display: block; }
-        .ui-btn.active { background: rgba(255, 215, 0, 0.4); box-shadow: 0 0 20px #ffd700; transform: scale(1.1); }
-        .count-badge { position: absolute; top: -5px; right: -5px; background: #ffd700; color: black; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; }
+        .ui-btn.active { background: rgba(204, 255, 0, 0.4); box-shadow: 0 0 20px ${LIME_COLOR_CSS}; transform: scale(1.1); }
+        .count-badge { position: absolute; top: -5px; right: -5px; background: ${LIME_COLOR_CSS}; color: black; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; }
 
-        .inventory-overlay { position: fixed; inset: 0; background: #020205; z-index: 2000; display: none; flex-direction: column; align-items: center; justify-content: center; color: #ffd700; font-family: sans-serif; }
+        /* Vista de Inventario */
+        .inventory-overlay { position: fixed; inset: 0; background: #020205; z-index: 2000; display: none; flex-direction: column; align-items: center; justify-content: center; color: ${LIME_COLOR_CSS}; font-family: sans-serif; }
         .inventory-overlay.active { display: flex; }
-        .back-btn { background: none; border: 1px solid #ffd700; color: #ffd700; border-radius: 50px; padding: 8px 20px; cursor: pointer; margin-bottom: 40px; }
+        .back-btn { background: none; border: 1px solid ${LIME_COLOR_CSS}; color: ${LIME_COLOR_CSS}; border-radius: 50px; padding: 8px 20px; cursor: pointer; margin-bottom: 40px; transition: 0.2s; }
+        .back-btn:hover { background: rgba(204, 255, 0, 0.1); }
+        
         .memories-grid { display: grid; grid-template-columns: repeat(auto-fill, 160px); gap: 20px; justify-content: center; width: 80%; }
         .memory-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; padding: 20px; display: flex; flex-direction: column; align-items: center; text-align: center; }
         .card-jar { width: 60px; margin-bottom: 15px; }
@@ -32,6 +40,7 @@ function injectUI() {
     styleSheet.innerText = styles;
     document.head.appendChild(styleSheet);
 
+    // Botones del Jardín
     const container = document.createElement('div');
     container.className = 'game-ui';
     container.innerHTML = `
@@ -43,25 +52,25 @@ function injectUI() {
     `;
     document.body.appendChild(container);
 
+    // Eventos
     document.getElementById('net-btn').onclick = (e) => {
         isCaptureMode = !isCaptureMode;
         e.currentTarget.classList.toggle('active', isCaptureMode);
-        
-        // BLOQUEO DE CÁMARA: Si capturo, no roto la cámara
         controls.enabled = !isCaptureMode; 
         document.body.style.cursor = isCaptureMode ? 'crosshair' : 'default';
     };
 
     document.getElementById('jar-btn').onclick = openInventory;
 
+    // Overlay de Inventario
     const overlay = document.createElement('div');
     overlay.className = 'inventory-overlay';
     overlay.id = 'inv-overlay';
     overlay.innerHTML = `
         <button class="back-btn" onclick="document.getElementById('inv-overlay').classList.remove('active')">← Volver al Jardín</button>
         <div style="text-align:center; margin-bottom:40px;">
-            <h2 style="margin:0">Mis Luces Guardadas</h2>
-            <p id="inv-status">Has atrapado 0 recuerdos</p>
+            <h2 style="margin:0; font-weight: bold; letter-spacing: 1px;">Mis Luces Guardadas</h2>
+            <p id="inv-status" style="font-size: 14px; opacity: 0.8;">Has atrapado 0 recuerdos</p>
         </div>
         <div class="memories-grid" id="memories-grid"></div>
     `;
@@ -77,8 +86,8 @@ function openInventory() {
         grid.innerHTML += `
             <div class="memory-card">
                 <img src="./assets/images/jar-item.png" class="card-jar">
-                <p style="font-size:14px; font-weight:bold; margin:5px 0;">${caughtCount === 0 ? '17 de marzo' : 'Recuerdo de luz'}</p>
-                <p style="font-size:11px; opacity:0.6;">Guardado</p>
+                <p style="font-size:14px; font-weight:bold; margin:5px 0; color: ${LIME_COLOR_CSS};">${caughtCount === 0 ? '17 de marzo' : 'Recuerdo de luz'}</p>
+                <p style="font-size:11px; opacity:0.6; color: ${LIME_COLOR_CSS};">Guardado</p>
             </div>`;
     }
     document.getElementById('inv-overlay').classList.add('active');
@@ -90,7 +99,9 @@ function createGlowTexture() {
     canvas.width = 64; canvas.height = 64;
     const ctx = canvas.getContext('2d');
     const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    grad.addColorStop(0, '#fff'); grad.addColorStop(0.3, '#ffd700'); grad.addColorStop(1, '#000');
+    grad.addColorStop(0, '#fff'); // Centro blanco
+    grad.addColorStop(0.3, '#ccff00'); // --- CAMBIO A VERDE LIMA ---
+    grad.addColorStop(1, '#000'); // Borde negro transparente
     ctx.fillStyle = grad; ctx.fillRect(0,0,64,64);
     return new THREE.CanvasTexture(canvas);
 }
@@ -98,7 +109,7 @@ const glowTex = createGlowTexture();
 
 class Firefly {
     constructor(model, x, y, z) {
-        this.group = new THREE.Group(); // Usamos un grupo para envolver todo
+        this.group = new THREE.Group(); 
         this.mesh = model.clone();
         this.mesh.scale.set(0.15, 0.15, 0.15);
         this.group.add(this.mesh);
@@ -107,16 +118,22 @@ class Firefly {
         this.phase = Math.random() * Math.PI * 2;
         this.velocity = new THREE.Vector3((Math.random()-0.5)*0.04, (Math.random()-0.5)*0.04, (Math.random()-0.5)*0.04);
         
-        // El userData va en el grupo para que el Raycaster lo encuentre fácil
         this.group.userData = { isFirefly: true, parentRef: this };
 
         this.mesh.traverse(child => {
             if(child.isMesh) {
-                // Hacemos que cada parte del modelo sepa quién es su padre
                 child.userData = { isFirefly: true, parentRef: this };
                 if(child.name.toLowerCase().includes("luz") || child.material.name.includes("004")) {
-                    child.material = new THREE.MeshBasicMaterial({ color: 0xffd700 });
-                    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+                    // --- CAMBIO A VERDE LIMA (#ccff00) ---
+                    child.material = new THREE.MeshBasicMaterial({ color: LIME_COLOR }); 
+                    
+                    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ 
+                        map: glowTex, 
+                        color: LIME_COLOR, // --- CAMBIO A VERDE LIMA ---
+                        transparent: true, 
+                        blending: THREE.AdditiveBlending, 
+                        depthWrite: false 
+                    }));
                     sprite.scale.set(10, 10, 1);
                     child.add(sprite);
                     this.glow = sprite;
@@ -155,34 +172,21 @@ class Firefly {
 
 function onMouseDown(event) {
     if (!isCaptureMode) return;
-
-    // Calculamos posición exacta del clic
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
     raycaster.setFromCamera(mouse, camera);
-    
-    // Buscamos intersecciones en la escena
     const intersects = raycaster.intersectObjects(scene.children, true);
-
     if (intersects.length > 0) {
-        // Buscamos el primer objeto que tenga la referencia de Firefly en sus ancestros
         let target = null;
         for (let i = 0; i < intersects.length; i++) {
             let obj = intersects[i].object;
             while (obj) {
-                if (obj.userData && obj.userData.isFirefly) {
-                    target = obj.userData.parentRef;
-                    break;
-                }
+                if (obj.userData && obj.userData.isFirefly) { target = obj.userData.parentRef; break; }
                 obj = obj.parent;
             }
             if (target) break;
         }
-
-        if (target) {
-            target.capture();
-        }
+        if (target) target.capture();
     }
 }
 
@@ -213,7 +217,6 @@ export function initGarden() {
         }
     });
 
-    // Cambiamos mousedown por click para evitar conflictos con el arrastre
     window.addEventListener('click', onMouseDown);
     
     function animate() {
