@@ -144,11 +144,22 @@ class Firefly {
         this.mesh = model.clone();
         this.mesh.scale.set(0.15, 0.15, 0.15);
         this.group.add(this.mesh);
+        
+        // Posición inicial
         this.group.position.set(x, y, z);
+        
+        // Fase única para que cada una lleve su ritmo
         this.phase = Math.random() * Math.PI * 2;
-        this.velocity = new THREE.Vector3((Math.random()-0.5)*0.04, (Math.random()-0.5)*0.04, (Math.random()-0.5)*0.04);
+        
+        // Velocidad inicial aleatoria (Aseguramos que no sea 0)
+        this.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.05,
+            (Math.random() - 0.5) * 0.05,
+            (Math.random() - 0.5) * 0.05
+        );
         
         this.group.userData = { isFirefly: true, parentRef: this };
+        
         this.mesh.traverse(child => {
             if(child.isMesh) {
                 child.userData = { isFirefly: true, parentRef: this };
@@ -161,27 +172,32 @@ class Firefly {
     }
 
     update(time) {
-        // 1. Movimiento constante basado en su velocidad
-        this.group.position.add(this.velocity);
-    
-        // 2. Pequeño balanceo errático para que parezca un bicho vivo
-        this.velocity.x += Math.sin(time * 0.4 + this.phase) * 0.001;
-        this.velocity.y += Math.cos(time * 0.5 + this.phase) * 0.001;
-        this.velocity.z += Math.sin(time * 0.3 + this.phase) * 0.001;
-    
-        // 3. Limitar la velocidad para que no salgan disparadas
-        this.velocity.clampLength(0.01, 0.05);
-    
-        // 4. Que miren hacia donde vuelan (rotación suave)
-        this.group.rotation.y = Math.atan2(this.velocity.x, this.velocity.z) + Math.PI;
-    
-        // 5. Efecto de "respiración" en la altura
-        this.group.position.y += Math.sin(time + this.phase) * 0.005;
+        // MOVIMIENTO FÍSICO: Sumamos la velocidad a la posición
+        this.group.position.x += this.velocity.x;
+        this.group.position.y += this.velocity.y;
+        this.group.position.z += this.velocity.z;
+
+        // CAMBIO DE DIRECCIÓN ERRÁTICO:
+        // Usamos la fase única para que cada bicho decida su giro
+        this.velocity.x += Math.sin(time * 0.5 + this.phase) * 0.002;
+        this.velocity.y += Math.cos(time * 0.3 + this.phase) * 0.002;
+        this.velocity.z += Math.sin(time * 0.7 + this.phase) * 0.002;
+
+        // Fricción/Límite: Para que no aceleren hasta el infinito
+        this.velocity.clampLength(0.01, 0.06);
+
+        // ROTACIÓN: Mirar hacia donde van
+        const direction = this.velocity.clone().normalize();
+        this.group.rotation.y = Math.atan2(direction.x, direction.z) + Math.PI;
+
+        // FLOTACIÓN EXTRA (Efecto suave arriba y abajo)
+        this.group.position.y += Math.sin(time * 2 + this.phase) * 0.005;
     }
 
     capture() {
         scene.remove(this.group);
-        fireflies.splice(fireflies.indexOf(this), 1);
+        const index = fireflies.indexOf(this);
+        if (index > -1) fireflies.splice(index, 1);
         
         const now = new Date();
         capturedMemories.push({
@@ -233,17 +249,17 @@ export function initGarden() {
     function animate() {
     requestAnimationFrame(animate);
     
-    // Obtenemos el tiempo en segundos
+    // Delta time (o tiempo absoluto)
     const time = performance.now() * 0.001;
 
-    // Actualizamos cada luciérnaga del array
-    fireflies.forEach(f => {
-        if (f && f.update) {
-            f.update(time);
+    // Recorremos el array de luciérnagas
+    for (let i = 0; i < fireflies.length; i++) {
+        if (fireflies[i]) {
+            fireflies[i].update(time);
         }
-    });
+    }
 
-    // Actualizamos controles de cámara (si están habilitados)
+    // Si los controles están activados, actualizamos la cámara
     if (controls && controls.enabled) {
         controls.update();
     }
