@@ -49,14 +49,26 @@ function injectUI() {
         .inv-title { font-size: 32px; margin-bottom: 10px; text-shadow: 0 0 10px rgba(204,255,0,0.3); }
         .memories-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 25px; width: 100%; max-width: 900px; margin-top: 40px; }
         
-       .memory-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(204, 255, 0, 0.2); border-radius: 20px; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; transition: 0.3s; }
-       .memory-card:hover { background: rgba(204, 255, 0, 0.1); transform: translateY(-5px); border-color: ${LIME}; }
+        .memory-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(204, 255, 0, 0.2); border-radius: 20px; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; transition: 0.3s; }
+        .memory-card:hover { background: rgba(204, 255, 0, 0.1); transform: translateY(-5px); border-color: ${LIME}; }
 
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 3000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(10px); padding: 20px; }
         .modal-content { background: #16213e; padding: 35px; border-radius: 30px; border: 1px solid ${LIME}; width: 100%; max-width: 450px; text-align: center; color: white; position: relative; }
         .img-slot { width: 100%; height: 200px; border: 1px dashed rgba(204,255,0,0.4); border-radius: 20px; margin-bottom: 25px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-style: italic; }
         .close-btn { background: none; border: 1px solid ${LIME}; color: ${LIME}; border-radius: 50px; padding: 10px 25px; cursor: pointer; margin-top: 25px; transition: 0.2s; }
         .close-btn:hover { background: ${LIME}; color: black; }
+
+        /* ESTILO PARA LA RED QUE SIGUE AL MOUSE */
+        .cursor-net {
+            position: fixed;
+            width: 70px;
+            height: 70px;
+            pointer-events: none;
+            z-index: 5000;
+            display: none;
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s ease-out;
+        }
     `;
     const styleSheet = document.createElement("style");
     styleSheet.innerText = styles;
@@ -72,6 +84,13 @@ function injectUI() {
         </button>
     `;
     document.body.appendChild(container);
+
+    // Creamos el elemento visual de la red
+    const netCursor = document.createElement('img');
+    netCursor.id = 'net-cursor';
+    netCursor.className = 'cursor-net';
+    netCursor.src = './assets/images/net-icon.png';
+    document.body.appendChild(netCursor);
 
     const toast = document.createElement('div');
     toast.id = 'toast-msg';
@@ -104,12 +123,35 @@ function injectUI() {
     `;
     document.body.appendChild(modal);
 
-    document.getElementById('net-btn').onclick = (e) => {
+    const netBtn = document.getElementById('net-btn');
+    const netVisual = document.getElementById('net-cursor');
+
+    netBtn.onclick = (e) => {
         isCaptureMode = !isCaptureMode;
-        e.currentTarget.classList.toggle('active', isCaptureMode);
+        netBtn.classList.toggle('active', isCaptureMode);
         controls.enabled = !isCaptureMode;
-        document.body.style.cursor = isCaptureMode ? 'crosshair' : 'default';
+        
+        if (isCaptureMode) {
+            document.body.style.cursor = 'none'; // Ocultamos el puntero normal
+            netVisual.style.display = 'block';
+        } else {
+            document.body.style.cursor = 'default';
+            netVisual.style.display = 'none';
+        }
     };
+    
+    // Lógica para seguir al mouse
+    window.addEventListener('mousemove', (e) => {
+        if (isCaptureMode) {
+            netVisual.style.left = e.clientX + 'px';
+            netVisual.style.top = e.clientY + 'px';
+            
+            // Efecto de inclinación según el movimiento
+            const tilt = e.movementX * 0.5;
+            netVisual.style.transform = `translate(-50%, -50%) rotate(${tilt}deg)`;
+        }
+    });
+
     document.getElementById('jar-btn').onclick = openInventory;
 }
 
