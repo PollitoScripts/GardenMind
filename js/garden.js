@@ -12,9 +12,25 @@ const capturedMemories = [];
 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
-
 const LIME = '#ccff00';
 
+// --- 1. TEXTURA DE RESPLANDOR (LA QUE TE GUSTA) ---
+function createGlowTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128; canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)'); 
+    gradient.addColorStop(0.2, 'rgba(204, 255, 0, 1)'); 
+    gradient.addColorStop(0.5, 'rgba(204, 255, 0, 0.3)');
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(canvas);
+}
+const glowTexture = createGlowTexture();
+
+// --- 2. INTERFAZ ---
 function injectUI() {
     const styles = `
         .game-ui { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 15px; z-index: 100; pointer-events: auto; }
@@ -31,7 +47,6 @@ function injectUI() {
         .memory-card:hover { background: rgba(204, 255, 0, 0.1); transform: translateY(-5px); border-color: ${LIME}; }
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 3000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(10px); padding: 20px; }
         .modal-content { background: #16213e; padding: 35px; border-radius: 30px; border: 1px solid ${LIME}; width: 100%; max-width: 450px; text-align: center; color: white; position: relative; }
-        .img-slot { width: 100%; height: 200px; border: 1px dashed rgba(204,255,0,0.4); border-radius: 20px; margin-bottom: 25px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-style: italic; }
         .close-btn { background: none; border: 1px solid ${LIME}; color: ${LIME}; border-radius: 50px; padding: 10px 25px; cursor: pointer; margin-top: 25px; transition: 0.2s; }
         .close-btn:hover { background: ${LIME}; color: black; }
     `;
@@ -53,7 +68,7 @@ function injectUI() {
     const toast = document.createElement('div');
     toast.id = 'toast-msg';
     toast.className = 'toast';
-    toast.innerText = 'Recuerdo atrapado, ve a tu inventario...';
+    toast.innerText = 'Recuerdo atrapado...';
     document.body.appendChild(toast);
 
     const inv = document.createElement('div');
@@ -62,7 +77,6 @@ function injectUI() {
     inv.innerHTML = `
         <button class="close-btn" style="margin: 0 0 40px 0;" onclick="document.getElementById('inv-overlay').classList.remove('active')">← Volver al Jardín</button>
         <h1 class="inv-title">Mis Luces Guardadas</h1>
-        <p style="opacity: 0.7;">Momentos mágicos capturados</p>
         <div id="memories-grid" class="memories-grid"></div>
     `;
     document.body.appendChild(inv);
@@ -70,15 +84,7 @@ function injectUI() {
     const modal = document.createElement('div');
     modal.id = 'mem-modal';
     modal.className = 'modal';
-    modal.innerHTML = `
-        <div class="modal-content">
-            <div class="img-slot">Espacio para fotografía</div>
-            <h2 id="m-title" style="color:${LIME}; margin: 0 0 10px 0;"></h2>
-            <p id="m-date" style="font-size:12px; opacity:0.6; margin-bottom: 20px;"></p>
-            <p id="m-desc" style="font-size:14px; line-height: 1.6; opacity: 0.9;">Aquí podrás escribir la historia de este recuerdo muy pronto...</p>
-            <button class="close-btn" onclick="document.getElementById('mem-modal').style.display='none'">Cerrar Detalle</button>
-        </div>
-    `;
+    modal.innerHTML = `<div class="modal-content"><h2 id="m-title" style="color:${LIME}"></h2><p id="m-date"></p><button class="close-btn" onclick="document.getElementById('mem-modal').style.display='none'">Cerrar</button></div>`;
     document.body.appendChild(modal);
 
     document.getElementById('net-btn').onclick = (e) => {
@@ -96,14 +102,10 @@ function openInventory() {
     capturedMemories.forEach((mem, index) => {
         const card = document.createElement('div');
         card.className = 'memory-card';
-        card.innerHTML = `
-            <img src="./assets/images/jar-item.png" style="width:60px; margin-bottom:15px;">
-            <p style="font-weight:bold; margin:0;">Recuerdo #${index + 1}</p>
-            <p style="font-size:11px; opacity:0.6; margin-top:5px;">${mem.date}</p>
-        `;
+        card.innerHTML = `<p>Recuerdo #${index + 1}</p>`;
         card.onclick = () => {
-            document.getElementById('m-title').innerText = `Luz capturada #${index + 1}`;
-            document.getElementById('m-date').innerText = `Guardado el ${mem.date} a las ${mem.time}`;
+            document.getElementById('m-title').innerText = `Luz #${index + 1}`;
+            document.getElementById('m-date').innerText = `Guardado el ${mem.date}`;
             document.getElementById('mem-modal').style.display = 'flex';
         };
         grid.appendChild(card);
@@ -117,93 +119,69 @@ function showToast() {
     setTimeout(() => { t.style.opacity = '0'; }, 3000);
 }
 
-// --- 2. CLASE FIREFLY CORREGIDA ---
+// --- 3. CLASE FIREFLY (MEZCLA PERFECTA) ---
 class Firefly {
     constructor(model, x, y, z) {
         this.group = new THREE.Group();
         this.mesh = model.clone();
         this.mesh.scale.set(0.15, 0.15, 0.15);
         this.group.add(this.mesh);
-        
         this.group.position.set(x, y, z);
+        
         this.phase = Math.random() * Math.PI * 2;
         this.velocity = new THREE.Vector3((Math.random()-0.5)*0.05, (Math.random()-0.5)*0.05, (Math.random()-0.5)*0.05);
         this.group.userData = { isFirefly: true, parentRef: this };
+        this.glowSprite = null;
 
-        // 1. Crear el material del aura (Más intenso)
-        const glowMaterial = new THREE.SpriteMaterial({
-            map: this.createGlowTexture(),
-            color: 0xccff00,
-            transparent: true,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false
-        });
-        
-        this.glowSprite = new THREE.Sprite(glowMaterial);
-        
-        // --- AJUSTE DE POSICIÓN ---
-        // Si sale muy adelante, cambia el -0.5 en Z por un valor positivo o ajusta Y.
-        // Estos valores mueven el brillo respecto al cuerpo de la luciérnaga.
-        this.glowSprite.position.set(0, 0.2, -1.5); 
-
-        this.mesh.traverse(child => {
-            if(child.isMesh) {
+        this.mesh.traverse((child) => {
+            if (child.isMesh) {
                 child.userData = { isFirefly: true, parentRef: this };
-                
-                const isLightPart = child.name.toLowerCase().includes("luz") || 
-                                   (child.material && child.material.name.includes("004"));
+                const isLightSource = child.name.toLowerCase().includes("luz") || child.material.name.includes("004");
 
-                if(isLightPart) {
+                if (isLightSource) {
                     child.material = new THREE.MeshBasicMaterial({ color: 0xccff00 });
-                    // Añadimos el aura a la parte que brilla
-                    child.add(this.glowSprite); 
+
+                    const spriteMat = new THREE.SpriteMaterial({ 
+                        map: glowTexture, 
+                        color: 0xccff00, 
+                        transparent: true, 
+                        blending: THREE.AdditiveBlending,
+                        depthWrite: false
+                    });
+                    this.glowSprite = new THREE.Sprite(spriteMat);
+                    
+                    // --- AQUÍ EL AJUSTE PARA EL "CULO" ---
+                    // x=0 (centro), y=0.5 (un poco arriba), z=-1.2 (hacia atrás)
+                    this.glowSprite.position.set(0, 0.5, -1.2); 
+                    
+                    child.add(this.glowSprite);
                 } else {
-                    child.material = new THREE.MeshStandardMaterial({ color: 0x020202 });
+                    child.material = new THREE.MeshStandardMaterial({ color: 0x010101, roughness: 1 });
                 }
             }
         });
-        
         scene.add(this.group);
     }
 
-    createGlowTexture() {
-        const canvas = document.createElement('canvas');
-        canvas.width = 128; canvas.height = 128; // Más resolución para más brillo
-        const ctx = canvas.getContext('2d');
-        const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-        
-        // Un degradado con más cuerpo blanco para que "queme" más la pantalla
-        grad.addColorStop(0, 'white');
-        grad.addColorStop(0.2, 'rgba(204, 255, 0, 1)');
-        grad.addColorStop(0.5, 'rgba(204, 255, 0, 0.3)');
-        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, 128, 128);
-        return new THREE.CanvasTexture(canvas);
-    }
-
     update(time) {
-        this.group.position.x += this.velocity.x;
-        this.group.position.y += this.velocity.y;
-        this.group.position.z += this.velocity.z;
+        // Movimiento
+        this.group.position.add(this.velocity);
+        this.velocity.x += Math.sin(time * 0.4 + this.phase) * 0.002;
+        this.velocity.y += Math.cos(time * 0.5 + this.phase) * 0.002;
+        this.velocity.z += Math.sin(time * 0.3 + this.phase) * 0.002;
+        this.velocity.clampLength(0.01, 0.08);
 
-        this.velocity.x += Math.sin(time * 0.5 + this.phase) * 0.002;
-        this.velocity.y += Math.cos(time * 0.3 + this.phase) * 0.002;
-        this.velocity.z += Math.sin(time * 0.7 + this.phase) * 0.002;
-        this.velocity.clampLength(0.01, 0.06);
-
+        // Rotación
         const direction = this.velocity.clone().normalize();
         this.group.rotation.y = Math.atan2(direction.x, direction.z) + Math.PI;
-        
-        // Latido del aura (Escala mucho más notable)
-        if(this.glowSprite) {
-            // Base de 6.0 para que se vea enorme + el seno para el pulso
-            const pulse = 6.0 + Math.sin(time * 6 + this.phase) * 1.5;
-            this.glowSprite.scale.set(pulse, pulse, 1);
-        }
 
-        this.group.position.y += Math.sin(time * 2 + this.phase) * 0.005;
+        // Latido del brillo (Copiado de tu código favorito)
+        const pulse = Math.pow((Math.sin(time * 3 + this.phase) + 1) / 2, 4);
+        if (this.glowSprite) {
+            this.glowSprite.material.opacity = 0.4 + (pulse * 0.6);
+            const s = 10 + (pulse * 12); // Brillo mucho más grande
+            this.glowSprite.scale.set(s, s, 1);
+        }
     }
 
     capture() {
@@ -211,27 +189,27 @@ class Firefly {
         const index = fireflies.indexOf(this);
         if (index > -1) fireflies.splice(index, 1);
         const now = new Date();
-        capturedMemories.push({
-            date: now.toLocaleDateString(),
-            time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        });
+        capturedMemories.push({ date: now.toLocaleDateString(), time: now.toLocaleTimeString() });
         caughtCount++;
         document.getElementById('jar-count').innerText = caughtCount;
         showToast();
     }
 }
 
+// --- 4. MOTOR PRINCIPAL ---
 export function initGarden() {
     scene = new THREE.Scene();
     injectUI();
-    const texLab = new THREE.TextureLoader();
-    texLab.load('./assets/textures/jardin-fondo.webp', (t) => { scene.background = t; });
 
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 3, 12);
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load('./assets/textures/jardin-fondo.webp', (t) => { scene.background = t; });
+
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 3, 15);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     document.getElementById('app-canvas').appendChild(renderer.domElement);
 
     scene.add(new THREE.AmbientLight(0xffffff, 1.2));
@@ -240,9 +218,8 @@ export function initGarden() {
 
     loader.load('./assets/models/test3.glb', (gltf) => {
         fireflyModel = gltf.scene;
-        for(let i=0; i<15; i++) {
-            const f = new Firefly(fireflyModel, (Math.random()-0.5)*15, Math.random()*5+1, (Math.random()-0.5)*10);
-            fireflies.push(f);
+        for(let i = 0; i < 15; i++) {
+            fireflies.push(new Firefly(fireflyModel, (Math.random()-0.5)*20, Math.random()*5+1, (Math.random()-0.5)*15));
         }
     });
 
@@ -259,10 +236,8 @@ export function initGarden() {
     function animate() {
         requestAnimationFrame(animate);
         const time = performance.now() * 0.001;
-        for (let i = 0; i < fireflies.length; i++) {
-            if (fireflies[i]) fireflies[i].update(time);
-        }
-        if (controls && controls.enabled) controls.update();
+        fireflies.forEach(f => f.update(time));
+        if (controls) controls.update();
         renderer.render(scene, camera);
     }
     animate();
