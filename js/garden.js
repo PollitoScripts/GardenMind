@@ -49,14 +49,17 @@ export function initGarden() {
 function spawnFirefly(x, y, z) {
     loader.load('./assets/models/test3.glb', (gltf) => {
         const firefly = gltf.scene;
-        
-        // ESCALA: 0.1 es un buen tamaño inicial
         firefly.scale.set(0.1, 0.1, 0.1); 
-
-        // ROTACIÓN: Si aparecen de espaldas o al revés, ajusta estos valores
-        firefly.rotation.y = Math.random() * Math.PI; 
-
         firefly.position.set(x, y, z);
+
+        // Guardamos direcciones aleatorias únicas para cada luciérnaga
+        firefly.userData = {
+            velX: (Math.random() - 0.5) * 0.02,
+            velY: (Math.random() - 0.5) * 0.02,
+            velZ: (Math.random() - 0.5) * 0.02,
+            offset: Math.random() * 100,
+            radius: 0.15 // Radio de "cuerpo" para evitar colisiones
+        };
 
         firefly.traverse((child) => {
             if (child.isMesh) {
@@ -67,7 +70,7 @@ function spawnFirefly(x, y, z) {
 
         scene.add(firefly);
         fireflies.push(firefly);
-    }, undefined, (err) => console.error("Error cargando modelo:", err));
+    });
 }
 
 export function addMemoryFirefly() {
@@ -85,15 +88,40 @@ function animate() {
     requestAnimationFrame(animate);
     const time = Date.now() * 0.001;
 
-    fireflies.forEach((f, i) => {
-        // Movimiento flotante
-        f.position.y += Math.sin(time + i) * 0.003;
-        f.position.x += Math.cos(time * 0.5 + i) * 0.001;
-        
-        // Parpadeo de intensidad
-        f.traverse((child) => {
+    fireflies.forEach((f1, i) => {
+        // 1. MOVIMIENTO BASE (Vuelo aleatorio)
+        // Usamos ruido de seno para que el giro no sea brusco
+        f1.position.x += f1.userData.velX + Math.sin(time + f1.userData.offset) * 0.005;
+        f1.position.y += f1.userData.velY + Math.cos(time * 0.8 + f1.userData.offset) * 0.005;
+        f1.position.z += f1.userData.velZ + Math.sin(time * 0.5 + f1.userData.offset) * 0.005;
+
+        // 2. EVITAR OBSTRUCCIONES (Colisión simple)
+        for (let j = i + 1; j < fireflies.length; j++) {
+            const f2 = fireflies[j];
+            const dist = f1.position.distanceTo(f2.position);
+            const minDist = 0.4; // Distancia mínima entre ellas
+
+            if (dist < minDist) {
+                // Si están muy cerca, se empujan en direcciones opuestas
+                const push = new THREE.Vector3().subVectors(f1.position, f2.position).normalize().multiplyScalar(0.01);
+                f1.position.add(push);
+                f2.position.sub(push);
+            }
+        }
+
+        // 3. LÍMITES DE VUELO (Para que no se escapen al infinito)
+        const limit = 5;
+        if (Math.abs(f1.position.x) > limit) f1.userData.velX *= -1;
+        if (Math.abs(f1.position.y) > limit) f1.userData.velY *= -1;
+        if (Math.abs(f1.position.z) > limit) f1.userData.velZ *= -1;
+
+        // 4. ORIENTACIÓN (Hacer que miren a donde vuelan)
+        // Opcional: f1.rotation.y += 0.01; 
+
+        // 5. PARPADEO
+        f1.traverse((child) => {
             if (child.isMesh) {
-                child.material.emissiveIntensity = 2 + Math.sin(time * 3 + i) * 3;
+                child.material.emissiveIntensity = 2 + Math.sin(time * 4 + f1.userData.offset) * 4;
             }
         });
     });
