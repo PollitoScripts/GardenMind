@@ -9,10 +9,10 @@ let fireflyModel = null;
 let isCaptureMode = false;
 
 // --- CONFIGURACIÓN GIST ---
-const GIST_ID = 'TU_ID_DE_GIST_AQUI';
+const GIST_ID = '3ccd05b32cc7e4f18f01aecd71caf597';
 const DISPATCH_TOKEN = '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';
-const REPO_OWNER = 'TU_USUARIO';
-const REPO_NAME = 'TU_REPO';
+const REPO_OWNER = 'PollitoScripts';
+const REPO_NAME = 'GardenMind';
 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
