@@ -126,7 +126,7 @@ function openInventory() {
             <p style="font-size:11px; opacity:0.6; margin-top:5px;">${mem.date}</p>
         `;
         card.onclick = () => {
-            document.getElementById('m-title').innerText = `Luz capturada #${index + 1}`;
+            document.getElementById('m-title').innerText = `Recuerdo Capturado #${index + 1}`;
             document.getElementById('m-date').innerText = `Guardado el ${mem.date} a las ${mem.time}`;
             document.getElementById('mem-modal').style.display = 'flex';
         };
