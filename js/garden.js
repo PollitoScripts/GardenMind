@@ -37,9 +37,9 @@ class Firefly {
         // 1. Wander: Cambia de dirección suavemente (Solo el 5% de los frames)
         if (Math.random() < 0.05) {
             let steer = new THREE.Vector3(
-                (Math.random() - 0.5) * 0.02,
-                (Math.random() - 0.5) * 0.02,
-                (Math.random() - 0.5) * 0.02
+                (Math.random() - 0.5) * 0.03,
+                (Math.random() - 0.5) * 0.03,
+                (Math.random() - 0.5) * 0.03
             );
             this.acceleration.add(steer);
         }
@@ -49,26 +49,38 @@ class Firefly {
         this.position.add(this.velocity);
         this.acceleration.multiplyScalar(0);
 
-        // 2. Posición y Rotación (MIRAR AL FRENTE)
+        // 2. Posición
         this.mesh.position.copy(this.position);
         
-        const target = this.position.clone().add(this.velocity);
-        this.mesh.lookAt(target);
-        this.mesh.rotateY(Math.PI); // Corrección para que la cabeza vaya delante
+        // 3. --- ROTACIÓN SUAVE (Adiós a los trompicones) ---
+        if (this.velocity.lengthSq() > 0.001) {
+            // Creamos una matriz temporal para calcular hacia dónde debería mirar
+            const tempMatrix = new THREE.Matrix4();
+            const targetPos = this.position.clone().add(this.velocity);
+            
+            tempMatrix.lookAt(targetPos, this.position, new THREE.Vector3(0, 1, 0));
+            
+            const targetQuaternion = new THREE.Quaternion().setFromRotationMatrix(tempMatrix);
+            
+            // Interpolar: 0.1 es la suavidad. 
+            // Si quieres que gire más lento y natural, baja a 0.05.
+            this.mesh.quaternion.slerp(targetQuaternion, 0.1);
+            
+            // Aplicamos la corrección de la cabeza (si es necesaria)
+            this.mesh.rotateY(Math.PI); 
+        }
 
-        // 3. Parpadeo
+        // 4. Parpadeo y Límites (igual que antes)
         this.mesh.traverse((child) => {
             if (child.isMesh) {
                 child.material.emissiveIntensity = 2 + Math.sin(time * 4 + this.offset) * 4;
             }
         });
 
-        // 4. Límites de la escena
         const limit = 6;
         if (Math.abs(this.position.x) > limit) this.velocity.x *= -1;
         if (this.position.y > 6 || this.position.y < 0.5) this.velocity.y *= -1;
         if (Math.abs(this.position.z) > limit) this.velocity.z *= -1;
-    }
 }
 
 // --- 2. MOTOR DEL JARDÍN ---
