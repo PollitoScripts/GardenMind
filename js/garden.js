@@ -139,7 +139,7 @@ class Firefly {
             depthWrite: false
         });
         this.glowSprite = new THREE.Sprite(glowMaterial);
-        this.glowSprite.scale.set(4, 4, 1); 
+        this.glowSprite.scale.set(4, 4, 4); 
 
         // 2. Recorrer el modelo para encontrar la luz y PEGAR el aura ahí
         this.mesh.traverse(child => {
