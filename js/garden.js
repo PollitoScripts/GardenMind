@@ -139,7 +139,7 @@ class Firefly {
             depthWrite: false
         });
         this.glowSprite = new THREE.Sprite(glowMaterial);
-        this.glowSprite.scale.set(4, 4, 4); 
+        this.glowSprite.scale.set(4, 4, 1); 
 
         // 2. Recorrer el modelo para encontrar la luz y PEGAR el aura ahí
         this.mesh.traverse(child => {
@@ -192,7 +192,7 @@ class Firefly {
         
         // Latido del aura (accediendo directamente a la propiedad de la clase)
         if(this.glowSprite) {
-            this.glowSprite.scale.setScalar(4 + Math.sin(time * 5 + this.phase) * 0.4);
+            this.glowSprite.scale.setScalar(8 + Math.sin(time * 5 + this.phase) * 0.4);
         }
 
         this.group.position.y += Math.sin(time * 2 + this.phase) * 0.005;
