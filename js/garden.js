@@ -12,29 +12,30 @@ class Firefly {
     constructor(model, x, y, z) {
         this.mesh = model.clone();
         this.position = new THREE.Vector3(x, y, z);
-        this.velocity = new THREE.Vector3((Math.random() - 0.5) * 0.05, (Math.random() - 0.5) * 0.05, (Math.random() - 0.5) * 0.05);
+        
+        // Velocidad inicial más calmada para evitar el caos
+        this.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.02, 
+            (Math.random() - 0.5) * 0.02, 
+            (Math.random() - 0.5) * 0.02
+        );
         this.acceleration = new THREE.Vector3();
-        this.maxSpeed = 0.05;
-        this.maxForce = 0.005;
-        this.offset = Math.random() * Math.PI * 2; // Offset para que no todas palpiten igual
+        this.maxSpeed = 0.04; // Un poco más lento para que sea elegante
+        this.maxForce = 0.002; // Menos fuerza = giros más amplios y menos "nerviosos"
+        this.offset = Math.random() * Math.PI * 2;
         
         this.mesh.scale.set(0.12, 0.12, 0.12);
         this.mesh.position.copy(this.position);
 
-        // --- BUSCAMOS LA PARTE "LUZ" ESPECÍFICAMENTE ---
         this.mesh.traverse((child) => {
             if (child.isMesh) {
-                // Clonamos el material para que cada luciérnaga sea independiente
                 child.material = child.material.clone();
+                // ILUMINACIÓN BÁSICA: Para que no se vean negras
+                child.material.emissiveIntensity = 0; 
                 
-                // Si es la parte de la luz, le damos el color irradiante
                 if (child.name.includes("Luz")) {
-                    child.material.emissive = new THREE.Color(0xccff00); // Verde-Amarillo neón
-                    child.material.emissiveIntensity = 2;
-                } else {
-                    // El resto del cuerpo no brilla y es más oscuro
-                    child.material.emissiveIntensity = 0;
-                    child.material.color.set(0x111111); // Un gris muy oscuro casi negro
+                    child.material.emissive = new THREE.Color(0xccff00);
+                    child.material.emissiveIntensity = 5; // Mucho más brillo
                 }
             }
         });
@@ -43,31 +44,36 @@ class Firefly {
     }
 
     update(time) {
-        // 1. Lógica de movimiento (la que ya tenías)
-        if (Math.random() < 0.05) {
-            let steer = new THREE.Vector3((Math.random()-0.5)*0.03, (Math.random()-0.5)*0.03, (Math.random()-0.5)*0.03);
+        // 1. MOVIMIENTO: Solo cambiamos de dirección un poco para que no zig-zagueen
+        if (Math.random() < 0.03) {
+            let steer = new THREE.Vector3(
+                (Math.random() - 0.5) * 0.01,
+                (Math.random() - 0.5) * 0.01,
+                (Math.random() - 0.5) * 0.01
+            );
             this.acceleration.add(steer);
         }
+
         this.velocity.add(this.acceleration);
-        this.velocity.clampLength(0, this.maxSpeed);
+        this.velocity.clampLength(0.01, this.maxSpeed); // Mínimo de velocidad para que no se paren
         this.position.add(this.velocity);
         this.acceleration.multiplyScalar(0);
         this.mesh.position.copy(this.position);
         
-        // 2. Rotación suave (Slerp)
+        // 2. ROTACIÓN: Usamos un slerp más lento (0.05) para que el giro sea de "avión"
         if (this.velocity.lengthSq() > 0.0001) {
             const tempMatrix = new THREE.Matrix4();
-            tempMatrix.lookAt(this.position.clone().add(this.velocity), this.position, new THREE.Vector3(0, 1, 0));
+            const lookTarget = this.position.clone().add(this.velocity);
+            tempMatrix.lookAt(lookTarget, this.position, new THREE.Vector3(0, 1, 0));
             const targetQuaternion = new THREE.Quaternion().setFromRotationMatrix(tempMatrix);
-            this.mesh.quaternion.slerp(targetQuaternion, 0.1);
+            
+            this.mesh.quaternion.slerp(targetQuaternion, 0.05); // Giro muy suave
             this.mesh.rotateY(Math.PI); 
         }
 
-        // 3. --- EFECTO CORAZÓN PALPITANTE ---
-        // Math.sin crea la curva, el 'offset' hace que no palpiten a la vez
-        const pulse = Math.sin(time * 2 + this.offset); 
-        // Normalizamos el valor para que vaya de 1 a 5 (siempre brillando)
-        const intensity = 2 + (pulse + 1) * 2; 
+        // 3. LATIDO TIPO CORAZÓN
+        const pulse = Math.sin(time * 2.5 + this.offset); 
+        const intensity = 3 + (pulse + 1) * 4; // Rango de 3 a 11 de brillo
 
         this.mesh.traverse((child) => {
             if (child.isMesh && child.name.includes("Luz")) {
@@ -75,11 +81,11 @@ class Firefly {
             }
         });
 
-        // 4. Límites
-        const limit = 6;
-        if (Math.abs(this.position.x) > limit) this.velocity.x *= -1;
-        if (this.position.y > 6 || this.position.y < 0.5) this.velocity.y *= -1;
-        if (Math.abs(this.position.z) > limit) this.velocity.z *= -1;
+        // 4. LÍMITES (Rebote suave en lugar de seco)
+        const limit = 7;
+        if (Math.abs(this.position.x) > limit) this.velocity.x *= -0.5;
+        if (this.position.y > 6 || this.position.y < 0.5) this.velocity.y *= -0.5;
+        if (Math.abs(this.position.z) > limit) this.velocity.z *= -0.5;
     }
 }
 
@@ -103,7 +109,7 @@ export function initGarden() {
     renderer.toneMappingExposure = 1.5; // Sube esto si las ves muy oscuras
     document.getElementById('app-canvas').appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 2); 
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5); // Sube a 1.5 o 2
     scene.add(ambientLight);
 
     camera.position.set(0, 2, 8);
