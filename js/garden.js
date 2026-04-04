@@ -58,16 +58,23 @@ function injectUI() {
         .close-btn { background: none; border: 1px solid ${LIME}; color: ${LIME}; border-radius: 50px; padding: 10px 25px; cursor: pointer; margin-top: 25px; transition: 0.2s; }
         .close-btn:hover { background: ${LIME}; color: black; }
 
-        /* ESTILO PARA LA RED QUE SIGUE AL MOUSE */
+        /* RED QUE SIGUE AL CURSOR */
         .cursor-net {
             position: fixed;
-            width: 70px;
-            height: 70px;
+            width: 80px;
+            height: 80px;
             pointer-events: none;
-            z-index: 5000;
+            z-index: 9999;
             display: none;
-            transform: translate(-50%, -50%);
-            transition: transform 0.1s ease-out;
+            /* Usamos margin para centrarla respecto al punto exacto del mouse */
+            margin-left: -40px;
+            margin-top: -40px;
+            transition: transform 0.05s ease-out;
+        }
+
+        /* FORZAR DESAPARICIÓN DEL CURSOR REAL */
+        .no-cursor, .no-cursor * {
+            cursor: none !important;
         }
     `;
     const styleSheet = document.createElement("style");
@@ -85,12 +92,12 @@ function injectUI() {
     `;
     document.body.appendChild(container);
 
-    // Creamos el elemento visual de la red
-    const netCursor = document.createElement('img');
-    netCursor.id = 'net-cursor';
-    netCursor.className = 'cursor-net';
-    netCursor.src = './assets/images/net-icon.png';
-    document.body.appendChild(netCursor);
+    // Creamos la red visual
+    const netVisual = document.createElement('img');
+    netVisual.id = 'net-cursor';
+    netVisual.className = 'cursor-net';
+    netVisual.src = './assets/images/net-icon.png';
+    document.body.appendChild(netVisual);
 
     const toast = document.createElement('div');
     toast.id = 'toast-msg';
@@ -124,7 +131,6 @@ function injectUI() {
     document.body.appendChild(modal);
 
     const netBtn = document.getElementById('net-btn');
-    const netVisual = document.getElementById('net-cursor');
 
     netBtn.onclick = (e) => {
         isCaptureMode = !isCaptureMode;
@@ -132,23 +138,22 @@ function injectUI() {
         controls.enabled = !isCaptureMode;
         
         if (isCaptureMode) {
-            document.body.style.cursor = 'none'; // Ocultamos el puntero normal
+            document.body.classList.add('no-cursor');
             netVisual.style.display = 'block';
         } else {
-            document.body.style.cursor = 'default';
+            document.body.classList.remove('no-cursor');
             netVisual.style.display = 'none';
         }
     };
     
-    // Lógica para seguir al mouse
     window.addEventListener('mousemove', (e) => {
         if (isCaptureMode) {
             netVisual.style.left = e.clientX + 'px';
             netVisual.style.top = e.clientY + 'px';
             
-            // Efecto de inclinación según el movimiento
-            const tilt = e.movementX * 0.5;
-            netVisual.style.transform = `translate(-50%, -50%) rotate(${tilt}deg)`;
+            // Efecto de inclinación según velocidad de movimiento
+            const tilt = e.movementX * 0.6;
+            netVisual.style.transform = `rotate(${tilt}deg)`;
         }
     });
 
@@ -183,7 +188,7 @@ function showToast() {
     setTimeout(() => { t.style.opacity = '0'; }, 3000);
 }
 
-// --- 4. CLASE FIREFLY (CON GLOW ÉPICO Y POSICIÓN TRASERA) ---
+// --- 4. CLASE FIREFLY ---
 class Firefly {
     constructor(model, x, y, z) {
         this.group = new THREE.Group();
@@ -213,8 +218,6 @@ class Firefly {
                         depthWrite: false
                     });
                     this.glowSprite = new THREE.Sprite(spriteMat);
-                    
-                    // AJUSTE POSICIÓN TRASERA: x=0, y=0.5 (arriba), z=-1.2 (atrás)
                     this.glowSprite.position.set(0, 0.5, -1.2); 
                     child.add(this.glowSprite);
                 } else {
@@ -235,7 +238,6 @@ class Firefly {
         const direction = this.velocity.clone().normalize();
         this.group.rotation.y = Math.atan2(direction.x, direction.z) + Math.PI;
 
-        // LATIDO POTENTE (8 a 20 de escala)
         const pulse = Math.pow((Math.sin(time * 3 + this.phase) + 1) / 2, 4);
         if (this.glowSprite) {
             this.glowSprite.material.opacity = 0.4 + (pulse * 0.6);
