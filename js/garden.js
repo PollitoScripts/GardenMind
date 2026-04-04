@@ -161,9 +161,22 @@ class Firefly {
     }
 
     update(time) {
+        // 1. Movimiento constante basado en su velocidad
         this.group.position.add(this.velocity);
-        this.group.position.y += Math.sin(time + this.phase) * 0.005;
+    
+        // 2. Pequeño balanceo errático para que parezca un bicho vivo
+        this.velocity.x += Math.sin(time * 0.4 + this.phase) * 0.001;
+        this.velocity.y += Math.cos(time * 0.5 + this.phase) * 0.001;
+        this.velocity.z += Math.sin(time * 0.3 + this.phase) * 0.001;
+    
+        // 3. Limitar la velocidad para que no salgan disparadas
+        this.velocity.clampLength(0.01, 0.05);
+    
+        // 4. Que miren hacia donde vuelan (rotación suave)
         this.group.rotation.y = Math.atan2(this.velocity.x, this.velocity.z) + Math.PI;
+    
+        // 5. Efecto de "respiración" en la altura
+        this.group.position.y += Math.sin(time + this.phase) * 0.005;
     }
 
     capture() {
@@ -218,11 +231,24 @@ export function initGarden() {
     });
 
     function animate() {
-        requestAnimationFrame(animate);
-        const time = performance.now() * 0.001;
-        fireflies.forEach(f => f.update(time));
-        if(controls && controls.enabled) controls.update();
-        renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+    
+    // Obtenemos el tiempo en segundos
+    const time = performance.now() * 0.001;
+
+    // Actualizamos cada luciérnaga del array
+    fireflies.forEach(f => {
+        if (f && f.update) {
+            f.update(time);
+        }
+    });
+
+    // Actualizamos controles de cámara (si están habilitados)
+    if (controls && controls.enabled) {
+        controls.update();
     }
+
+    renderer.render(scene, camera);
+}
     animate();
 }
