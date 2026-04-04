@@ -144,7 +144,7 @@ class Firefly {
         // --- AJUSTE DE POSICIÓN ---
         // Si sale muy adelante, cambia el -0.5 en Z por un valor positivo o ajusta Y.
         // Estos valores mueven el brillo respecto al cuerpo de la luciérnaga.
-        this.glowSprite.position.set(0, 0.2, -0.8); 
+        this.glowSprite.position.set(0, 0.2, -1.5); 
 
         this.mesh.traverse(child => {
             if(child.isMesh) {
