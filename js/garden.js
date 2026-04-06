@@ -59,11 +59,10 @@ function spawnUniqueFireflies() {
         const randomIndex = Math.floor(Math.random() * window.availablePool.length);
         const data = window.availablePool.splice(randomIndex, 1)[0];
         
-        // Aparecen en un radio de 15 unidades alrededor del centro (0,0,0)
-        // Esto garantiza que al empezar el juego, las veas casi todas
-        const x = (Math.random() - 0.5) * 15;
-        const y = Math.random() * 4 + 1;
-        const z = (Math.random() - 0.5) * 15;
+        // Nacen en un espacio muy pequeño (Radio de 8)
+        const x = (Math.random() - 0.5) * 8;
+        const y = Math.random() * 3 + 1; // Altura entre 1 y 4 metros
+        const z = (Math.random() - 0.5) * 8;
         
         const f = new Firefly(fireflyModel, x, y, z, data);
         fireflies.push(f);
@@ -278,7 +277,7 @@ class Firefly {
 
     // --- LÍMITES DE VUELO DEL JARDÍN ---
     // X: Izquierda/Derecha, Y: Altura, Z: Profundidad
-    const bounds = { x: 25, y: 12, z: 25 }; 
+    const bounds = { x: 12, y: 8, z: 10 };
 
     // Rebote en los bordes del jardín (X y Z)
     if (Math.abs(this.group.position.x) > bounds.x) {
@@ -291,9 +290,9 @@ class Firefly {
     }
 
     // Límite de altura (Y) - No bajar del suelo (0.5) ni subir demasiado (12)
-    if (this.group.position.y > bounds.y || this.group.position.y < 0.5) {
+    if (this.group.position.y > bounds.y || this.group.position.y < 0.8) {
         this.velocity.y *= -1;
-        this.group.position.y = Math.max(0.5, Math.min(this.group.position.y, bounds.y));
+        this.group.position.y = Math.max(0.8, Math.min(this.group.position.y, bounds.y));
     }
     // -----------------------------------
 
