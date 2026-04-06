@@ -293,7 +293,7 @@ class Firefly {
     this.group.position.add(this.velocity);
 
     // --- LÍMITES DE VUELO REDUCIDOS (Burbuja) ---
-    const bounds = { x: 12, y: 8, z: 10 };
+    const bounds = { x: 15, y: 15, z: 10 };
 
     // Rebote con cambio de dirección (X y Z)
     if (Math.abs(this.group.position.x) > bounds.x) {
