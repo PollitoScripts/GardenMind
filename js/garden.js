@@ -179,7 +179,10 @@ function injectUI() {
 }
 
 // --- 4. LÓGICA DE INVENTARIO ---
+
 function openInventory() {
+    // --- NUEVO: Limpiamos la red antes de mostrar el inventario ---
+    disableCaptureMode(); 
     const grid = document.getElementById('memories-grid');
     grid.innerHTML = '';
     window.capturedMemories.forEach((mem) => {
@@ -191,6 +194,7 @@ function openInventory() {
             <p style="font-size:11px; opacity:0.6; margin-top:5px;">Recuerdo #${mem.id}</p>
         `;
         card.onclick = () => {
+            disableCaptureMode();
             document.getElementById('m-img-slot').innerHTML = mem.img ? `<img src="${mem.img}">` : "Sin imagen";
             document.getElementById('m-title').innerText = mem.title;
             document.getElementById('m-desc').innerText = mem.desc;
@@ -199,6 +203,26 @@ function openInventory() {
         grid.appendChild(card);
     });
     document.getElementById('inv-overlay').classList.add('active');
+}
+
+function disableCaptureMode() {
+    isCaptureMode = false;
+    
+    // 1. Quitar clase de cursor invisible
+    document.body.classList.remove('no-cursor');
+    
+    // 2. Ocultar la red visual
+    const netVisual = document.getElementById('net-cursor');
+    if (netVisual) netVisual.style.display = 'none';
+    
+    // 3. Quitar el brillo/estado activo del botón de la red
+    const netBtn = document.getElementById('net-btn');
+    if (netBtn) netBtn.classList.remove('active');
+    
+    // 4. Reactivar los controles de la cámara (OrbitControls)
+    if (controls) controls.enabled = true;
+    
+    console.log("Modo captura desactivado automáticamente.");
 }
 
 function showToast(msg) {
