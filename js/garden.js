@@ -59,8 +59,10 @@ function spawnUniqueFireflies() {
         const randomIndex = Math.floor(Math.random() * window.availablePool.length);
         const data = window.availablePool.splice(randomIndex, 1)[0];
         
-        const x = (Math.random() - 0.5) * 20;
-        const y = Math.random() * 5 + 1;
+        // Aparecen en un radio de 15 unidades alrededor del centro (0,0,0)
+        // Esto garantiza que al empezar el juego, las veas casi todas
+        const x = (Math.random() - 0.5) * 15;
+        const y = Math.random() * 4 + 1;
         const z = (Math.random() - 0.5) * 15;
         
         const f = new Firefly(fireflyModel, x, y, z, data);
@@ -271,24 +273,45 @@ class Firefly {
         scene.add(this.group);
     }
 
-    update(time) {
-        this.group.position.add(this.velocity);
-        this.velocity.x += Math.sin(time * 0.4 + this.phase) * 0.002;
-        this.velocity.y += Math.cos(time * 0.5 + this.phase) * 0.002;
-        this.velocity.z += Math.sin(time * 0.3 + this.phase) * 0.002;
-        this.velocity.clampLength(0.01, 0.08);
+   update(time) {
+    this.group.position.add(this.velocity);
 
-        const direction = this.velocity.clone().normalize();
-        this.group.rotation.y = Math.atan2(direction.x, direction.z) + Math.PI;
+    // --- LÍMITES DE VUELO DEL JARDÍN ---
+    // X: Izquierda/Derecha, Y: Altura, Z: Profundidad
+    const bounds = { x: 25, y: 12, z: 25 }; 
 
-        const pulse = Math.pow((Math.sin(time * 3 + this.phase) + 1) / 2, 4);
-        if (this.glowSprite) {
-            this.glowSprite.material.opacity = 0.4 + (pulse * 0.6);
-            const s = 10 + (pulse * 12); 
-            this.glowSprite.scale.set(s, s, 1);
-        }
+    // Rebote en los bordes del jardín (X y Z)
+    if (Math.abs(this.group.position.x) > bounds.x) {
+        this.velocity.x *= -1; // Rebote total
+        this.group.position.x = Math.sign(this.group.position.x) * bounds.x;
+    }
+    if (Math.abs(this.group.position.z) > bounds.z) {
+        this.velocity.z *= -1;
+        this.group.position.z = Math.sign(this.group.position.z) * bounds.z;
     }
 
+    // Límite de altura (Y) - No bajar del suelo (0.5) ni subir demasiado (12)
+    if (this.group.position.y > bounds.y || this.group.position.y < 0.5) {
+        this.velocity.y *= -1;
+        this.group.position.y = Math.max(0.5, Math.min(this.group.position.y, bounds.y));
+    }
+    // -----------------------------------
+
+    this.velocity.x += Math.sin(time * 0.4 + this.phase) * 0.002;
+    this.velocity.y += Math.cos(time * 0.5 + this.phase) * 0.002;
+    this.velocity.z += Math.sin(time * 0.3 + this.phase) * 0.002;
+    this.velocity.clampLength(0.01, 0.08);
+
+    const direction = this.velocity.clone().normalize();
+    this.group.rotation.y = Math.atan2(direction.x, direction.z) + Math.PI;
+
+    const pulse = Math.pow((Math.sin(time * 3 + this.phase) + 1) / 2, 4);
+    if (this.glowSprite) {
+        this.glowSprite.material.opacity = 0.4 + (pulse * 0.6);
+        const s = 10 + (pulse * 12); 
+        this.glowSprite.scale.set(s, s, 1);
+    }
+}
     async capture() {
         scene.remove(this.group);
         const index = fireflies.indexOf(this);
