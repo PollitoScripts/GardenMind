@@ -182,7 +182,6 @@ function injectUI() {
 // --- 4. LÓGICA DE INVENTARIO ---
 
 function openInventory() {
-    // --- NUEVO: Limpiamos la red antes de mostrar el inventario ---
     disableCaptureMode(); 
     const grid = document.getElementById('memories-grid');
     grid.innerHTML = '';
@@ -208,21 +207,12 @@ function openInventory() {
 
 function disableCaptureMode() {
     isCaptureMode = false;
-    
-    // 1. Quitar clase de cursor invisible
     document.body.classList.remove('no-cursor');
-    
-    // 2. Ocultar la red visual
     const netVisual = document.getElementById('net-cursor');
     if (netVisual) netVisual.style.display = 'none';
-    
-    // 3. Quitar el brillo/estado activo del botón de la red
     const netBtn = document.getElementById('net-btn');
     if (netBtn) netBtn.classList.remove('active');
-    
-    // 4. Reactivar los controles de la cámara (OrbitControls)
     if (controls) controls.enabled = true;
-    
     console.log("Modo captura desactivado automáticamente.");
 }
 
@@ -243,8 +233,18 @@ class Firefly {
         this.group.add(this.mesh);
         this.group.position.set(x, y, z);
         
+        // --- ADN DE MOVIMIENTO ÚNICO ---
         this.phase = Math.random() * Math.PI * 2;
-        this.velocity = new THREE.Vector3((Math.random()-0.5)*0.05, (Math.random()-0.5)*0.05, (Math.random()-0.5)*0.05);
+        this.speedX = 0.3 + Math.random() * 0.5; 
+        this.speedY = 0.3 + Math.random() * 0.5;
+        this.speedZ = 0.3 + Math.random() * 0.5;
+        this.jitter = 0.001 + Math.random() * 0.003;
+
+        this.velocity = new THREE.Vector3(
+            (Math.random()-0.5)*0.05, 
+            (Math.random()-0.5)*0.05, 
+            (Math.random()-0.5)*0.05
+        );
         this.group.userData = { isFirefly: true, parentRef: this };
         this.glowSprite = null;
 
@@ -275,31 +275,30 @@ class Firefly {
    update(time) {
     this.group.position.add(this.velocity);
 
-    // --- LÍMITES DE VUELO DEL JARDÍN ---
-    // X: Izquierda/Derecha, Y: Altura, Z: Profundidad
+    // --- LÍMITES DE VUELO REDUCIDOS (Burbuja) ---
     const bounds = { x: 12, y: 8, z: 10 };
 
-    // Rebote en los bordes del jardín (X y Z)
+    // Rebote con cambio de dirección (X y Z)
     if (Math.abs(this.group.position.x) > bounds.x) {
-        this.velocity.x *= -1; // Rebote total
+        this.velocity.x *= -1.1; 
         this.group.position.x = Math.sign(this.group.position.x) * bounds.x;
     }
     if (Math.abs(this.group.position.z) > bounds.z) {
-        this.velocity.z *= -1;
+        this.velocity.z *= -1.1;
         this.group.position.z = Math.sign(this.group.position.z) * bounds.z;
     }
 
-    // Límite de altura (Y) - No bajar del suelo (0.5) ni subir demasiado (12)
+    // Límite de altura (Y)
     if (this.group.position.y > bounds.y || this.group.position.y < 0.8) {
-        this.velocity.y *= -1;
+        this.velocity.y *= -1.1;
         this.group.position.y = Math.max(0.8, Math.min(this.group.position.y, bounds.y));
     }
-    // -----------------------------------
 
-    this.velocity.x += Math.sin(time * 0.4 + this.phase) * 0.002;
-    this.velocity.y += Math.cos(time * 0.5 + this.phase) * 0.002;
-    this.velocity.z += Math.sin(time * 0.3 + this.phase) * 0.002;
-    this.velocity.clampLength(0.01, 0.08);
+    // --- MOVIMIENTO CAÓTICO INDIVIDUAL ---
+    this.velocity.x += Math.sin(time * this.speedX + this.phase) * this.jitter;
+    this.velocity.y += Math.cos(time * this.speedY + this.phase) * this.jitter;
+    this.velocity.z += Math.sin(time * this.speedZ + this.phase) * this.jitter;
+    this.velocity.clampLength(0.01, 0.07);
 
     const direction = this.velocity.clone().normalize();
     this.group.rotation.y = Math.atan2(direction.x, direction.z) + Math.PI;
@@ -311,12 +310,12 @@ class Firefly {
         this.glowSprite.scale.set(s, s, 1);
     }
 }
+
     async capture() {
         scene.remove(this.group);
         const index = fireflies.indexOf(this);
         if (index > -1) fireflies.splice(index, 1);
         
-        // Notificar a GitHub Actions
         fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/dispatches`, {
             method: 'POST',
             headers: {
@@ -332,25 +331,20 @@ class Firefly {
         window.capturedMemories.push(this.data);
         document.getElementById('jar-count').innerText = window.capturedMemories.length;
         showToast(`¡Recuerdo "${this.data.title}" capturado! ✨`);
-        
         spawnUniqueFireflies();
     }
 }
 
 // --- 6. MOTOR DEL JARDÍN ---
 export async function initGarden() {
-    // 1. IMPORTANTE: Primero inyectamos la interfaz (HTML/CSS)
-    // para que existan los elementos 'jar-count', etc.
     injectUI();
 
-    // 2. Cargamos los datos del Gist
     const ready = await loadUniquePool();
     if (!ready) {
         console.error("No se pudo cargar el Pool de luciérnagas.");
         return;
     }
 
-    // 3. Iniciamos Three.js normalmente
     scene = new THREE.Scene();
 
     const textureLoader = new THREE.TextureLoader();
@@ -372,10 +366,8 @@ export async function initGarden() {
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    // 4. Cargamos el modelo y usamos la función de pool único
     loader.load('./assets/models/test3.glb', (gltf) => {
         fireflyModel = gltf.scene;
-        // En lugar de un bucle for simple, usamos tu nueva función
         spawnUniqueFireflies();
     });
 
@@ -389,19 +381,11 @@ export async function initGarden() {
         if (hit) hit.object.userData.parentRef.capture();
     });
 
-    // --- MANEJO DE REDIMENSIÓN ---
     window.addEventListener('resize', () => {
-        // 1. Actualizar el tamaño del renderizador
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        
-        // 2. Actualizar la relación de aspecto de la cámara
         camera.aspect = window.innerWidth / window.innerHeight;
-    
-        // 3. Aplicar los cambios en la proyección de la cámara
         camera.updateProjectionMatrix();
-        
-        console.log("Cámara y renderizador ajustados al nuevo tamaño.");
     });
     
     function animate() {
