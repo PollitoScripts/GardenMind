@@ -45,12 +45,23 @@ async function loadUniquePool() {
 
         window.availablePool = db.available;
         window.capturedMemories = db.captured;
+        // Cargamos la fecha de la última captura desde el Gist
+        window.lastCaptureDate = db.last_capture;
+
         document.getElementById('jar-count').innerText = window.capturedMemories.length;
         return true;
     } catch (e) {
         console.error("Error cargando Gist:", e);
         return false;
     }
+}
+
+// Nueva función para verificar si puede capturar hoy según la fecha del Gist
+function canCaptureToday() {
+    if (!window.lastCaptureDate) return true;
+    // Formato YYYY-MM-DD
+    const hoy = new Date().toLocaleDateString('en-CA'); 
+    return window.lastCaptureDate !== hoy;
 }
 
 function spawnUniqueFireflies() {
@@ -155,6 +166,12 @@ function injectUI() {
 
     const netBtn = document.getElementById('net-btn');
     netBtn.onclick = () => {
+        // Antes de activar, comprobamos si puede capturar hoy
+        if (!isCaptureMode && !canCaptureToday()) {
+            showToast("Solo puedes guardar un recuerdo al día. ¡Vuelve mañana! 🌙");
+            return;
+        }
+
         isCaptureMode = !isCaptureMode;
         netBtn.classList.toggle('active', isCaptureMode);
         controls.enabled = !isCaptureMode;
@@ -312,6 +329,15 @@ class Firefly {
 }
 
     async capture() {
+        // Doble verificación de seguridad
+        if (!canCaptureToday()) {
+            showToast("Ya has guardado un recuerdo hoy. ✨");
+            disableCaptureMode();
+            return;
+        }
+
+        const hoy = new Date().toLocaleDateString('en-CA');
+
         scene.remove(this.group);
         const index = fireflies.indexOf(this);
         if (index > -1) fireflies.splice(index, 1);
@@ -324,13 +350,20 @@ class Firefly {
             },
             body: JSON.stringify({
                 event_type: 'firefly_caught',
-                client_payload: { id: this.data.id }
+                client_payload: { 
+                    id: this.data.id,
+                    new_date: hoy // Enviamos la fecha actual para actualizar el Gist
+                }
             })
         });
 
+        // Actualizamos localmente para bloquear capturas inmediatas
+        window.lastCaptureDate = hoy;
         window.capturedMemories.push(this.data);
         document.getElementById('jar-count').innerText = window.capturedMemories.length;
         showToast(`¡Recuerdo "${this.data.title}" capturado! ✨`);
+        
+        disableCaptureMode();
         spawnUniqueFireflies();
     }
 }
