@@ -343,6 +343,21 @@ export async function initGarden() {
         if (hit) hit.object.userData.parentRef.capture();
     });
 
+    // --- MANEJO DE REDIMENSIÓN ---
+    window.addEventListener('resize', () => {
+        // 1. Actualizar el tamaño del renderizador
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        
+        // 2. Actualizar la relación de aspecto de la cámara
+        camera.aspect = window.innerWidth / window.innerHeight;
+    
+        // 3. Aplicar los cambios en la proyección de la cámara
+        camera.updateProjectionMatrix();
+        
+        console.log("Cámara y renderizador ajustados al nuevo tamaño.");
+    });
+    
     function animate() {
         requestAnimationFrame(animate);
         const time = performance.now() * 0.001;
