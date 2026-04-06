@@ -16,10 +16,19 @@ jobs:
           # 2. Extraer el contenido de memories.json
           cat gist.json | jq -r '.files["memories.json"].content' > db.json
           
-          # 3. Lógica de movimiento (Usando JQ para manipular el JSON)
-          # Mueve el ID enviado desde el JS de 'available' a 'captured'
+          # 3. Lógica de movimiento y actualización de fecha
+          # Recogemos el ID y la FECHA enviados desde el JS
           ID_TO_CAPTURE="${{ github.event.client_payload.id }}"
-          jq --arg id "$ID_TO_CAPTURE" '.captured += [.available[] | select(.id == ($id|tonumber))] | .available |= map(select(.id != ($id|tonumber)))' db.json > new_db.json
+          NEW_DATE="${{ github.event.client_payload.new_date }}"
+
+          # JQ hace 3 cosas ahora:
+          # - Mueve el objeto de 'available' a 'captured'
+          # - Lo borra de 'available'
+          # - Actualiza el campo 'last_capture' con la fecha recibida
+          jq --arg id "$ID_TO_CAPTURE" --arg date "$NEW_DATE" \
+          '.captured += [.available[] | select(.id == ($id|tonumber))] | 
+           .available |= map(select(.id != ($id|tonumber))) | 
+           .last_capture = $date' db.json > new_db.json
           
           # 4. Subir el JSON actualizado al Gist
           CONTENT=$(cat new_db.json | jq -Rs .)
